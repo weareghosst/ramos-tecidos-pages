@@ -52,7 +52,11 @@ export default function Checkout() {
         body: JSON.stringify({ orderId: data.orderId })
       });
 
-      const pix = await pixRes.json();
+      const pixText = await pixRes.text();
+let pix: any = {};
+try { pix = JSON.parse(pixText); } catch { pix = { error: pixText }; }
+
+
       if (!pixRes.ok) throw new Error(pix.error || "Erro ao gerar Pix");
 
       setQrBase64(pix.qrCodeBase64);
