@@ -25,6 +25,16 @@ export default function Checkout() {
     }
   }, []);
 
+async function safeJson(res: Response) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return { error: "Resposta inválida do servidor", raw: text };
+  }
+}
+
+
   async function handleCheckout() {
     setLoading(true);
     try {
@@ -40,7 +50,7 @@ export default function Checkout() {
         })
       });
 
-      const data = await res.json();
+      const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || "Erro ao criar pedido");
 
       setOrderId(data.orderId);
