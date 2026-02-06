@@ -35,6 +35,7 @@ async function safeJson(res: Response) {
 }
 
 
+
   async function handleCheckout() {
     setLoading(true);
     try {
