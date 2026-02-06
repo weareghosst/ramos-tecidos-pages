@@ -1,35 +1,38 @@
-import Link from "next/link";
+import Header from "../../components/Header";
+import Container from "../../components/Container";
+import ProductCard from "../../components/ProductCard";
 
-import { supabase } from "../../shared/supabaseClient";
-
-
-const MOCK = [
-  { slug: "tricoline-floral-azul", name: "Tricoline Floral Azul", pricePerMeter: 24.9 },
-  { slug: "linho-natural", name: "Linho Natural", pricePerMeter: 49.9 },
+const products = [
+  {
+    id: "1",
+    name: "Tricoline Floral Azul",
+    price_per_meter: 24.9,
+    slug: "tricoline-floral-azul",
+  },
+  {
+    id: "2",
+    name: "Algodão Cru",
+    price_per_meter: 18.5,
+    slug: "algodao-cru",
+  },
 ];
 
 export default function Produtos() {
   return (
-    <main style={{ maxWidth: 960, margin: "0 auto", padding: 24 }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ margin: 0 }}>Produtos</h1>
-        <nav style={{ display: "flex", gap: 12 }}>
-          <Link href="/">Home</Link>
-          <Link href="/carrinho">Carrinho</Link>
-        </nav>
-      </header>
+  <div className="min-h-screen bg-soft text-white">
 
-      <ul style={{ marginTop: 24, padding: 0, listStyle: "none", display: "grid", gap: 12 }}>
-        {MOCK.map((p) => (
-          <li key={p.slug} style={{ border: "1px solid #eee", borderRadius: 12, padding: 16 }}>
-            <strong>{p.name}</strong>
-            <div style={{ marginTop: 6 }}>R$ {p.pricePerMeter.toFixed(2)} / metro</div>
-            <div style={{ marginTop: 10 }}>
-              <Link href={`/produto/${p.slug}`}>Ver produto →</Link>
-            </div>
-          </li>
-        ))}
-      </ul>
-    </main>
+      <Header />
+      <main className="py-10">
+        <Container>
+          <h1 className="mb-6 text-3xl font-bold">Produtos</h1>
+
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3">
+            {products.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        </Container>
+      </main>
+    </div>
   );
 }
