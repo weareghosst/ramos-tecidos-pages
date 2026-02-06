@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { supabase } from "../shared/supabaseClient";
+
 
 export default function Checkout() {
   const cartKey = "ramos_cart_v1";

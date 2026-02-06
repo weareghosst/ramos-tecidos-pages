@@ -1,5 +1,8 @@
 import Link from "next/link";
 
+import { supabase } from "../../shared/supabaseClient";
+
+
 const MOCK = [
   { slug: "tricoline-floral-azul", name: "Tricoline Floral Azul", pricePerMeter: 24.9 },
   { slug: "linho-natural", name: "Linho Natural", pricePerMeter: 49.9 },
