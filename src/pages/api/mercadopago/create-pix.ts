@@ -1,79 +1,98 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function mustEnv(name: string) {
+  const v = process.env[name];
+  if (!v) throw new Error(`${name} is required`);
+  return v;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
-
-    const { orderId } = req.body as { orderId?: string };
-    if (!orderId) return res.status(400).json({ error: "orderId ausente" });
-
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL!;
-    if (!baseUrl) return res.status(500).json({ error: "NEXT_PUBLIC_BASE_URL não configurada na Vercel" });
-
-    const notificationUrl = `${baseUrl}/api/mercadopago/webhook?token=${process.env.MERCADOPAGO_WEBHOOK_SECRET}`;
-
-    const { data: order, error: oErr } = await supabase
-      .from("orders")
-      .select("id,total_price,email,status,mp_payment_id")
-      .eq("id", orderId)
-      .single();
-
-    if (oErr || !order) return res.status(404).json({ error: "Pedido não encontrado" });
-    if (order.status !== "pending") return res.status(400).json({ error: "Pedido não está pendente" });
-    if (order.mp_payment_id) return res.status(400).json({ error: "Pix já foi gerado para este pedido" });
-
-    const mpResp = await fetch("https://api.mercadopago.com/v1/payments", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.MERCADOPAGO_ACCESS_TOKEN}`,
-        "Content-Type": "application/json",
-        "X-Idempotency-Key": order.id
-      },
-      body: JSON.stringify({
-        transaction_amount: Number(order.total_price),
-        description: `Pedido ${order.id} - RAMOS TECIDOS`,
-        payment_method_id: "pix",
-        payer: { email: order.email },
-        external_reference: order.id,
-        notification_url: notificationUrl
-      })
-    });
-
-    const raw = await mpResp.text();
-    let payment: any = null;
-    try { payment = JSON.parse(raw); } catch { /* ignore */ }
-
-    if (!mpResp.ok) {
-      return res.status(500).json({ error: "Mercado Pago erro", details: payment || raw });
+    if (req.method !== "POST") {
+      res.setHeader("Allow", "POST");
+      return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const qrCodeCopyPaste = payment?.point_of_interaction?.transaction_data?.qr_code ?? null;
-    const qrCodeBase64 = payment?.point_of_interaction?.transaction_data?.qr_code_base64 ?? null;
+    const MP_ACCESS_TOKEN = mustEnv("MERCADOPAGO_ACCESS_TOKEN");
+    const BASE_URL = mustEnv("NEXT_PUBLIC_BASE_URL"); // ex: https://seuprojeto.vercel.app
 
-    await supabase
-      .from("orders")
-      .update({
-        mp_payment_id: String(payment.id),
-        mp_status: String(payment.status)
-      })
-      .eq("id", order.id);
+    const { orderId, amount, payer } = req.body || {};
 
-     console.log("BASE_URL:", process.env.NEXT_PUBLIC_BASE_URL);
-     console.log("NOTIFICATION_URL:", notificationUrl);
+    if (!orderId) return res.status(400).json({ error: "orderId ausente" });
+
+    const transaction_amount = Number(amount);
+    if (!transaction_amount || Number.isNaN(transaction_amount) || transaction_amount <= 0) {
+      return res.status(400).json({ error: "amount inválido" });
+    }
+
+    if (!payer?.email) return res.status(400).json({ error: "payer.email ausente" });
+    if (!payer?.first_name) return res.status(400).json({ error: "payer.first_name ausente" });
+    if (!payer?.last_name) return res.status(400).json({ error: "payer.last_name ausente" });
+
+    // URL do webhook precisa ser URL válida (HTTPS em produção)
+    const notification_url = `${BASE_URL.replace(/\/$/, "")}/api/mercadopago/webhook`;
+
+    const body = {
+      transaction_amount,
+      description: `Pedido Ramos Tecidos ${orderId}`,
+      payment_method_id: "pix",
+      payer: {
+        email: payer.email,
+        first_name: payer.first_name,
+        last_name: payer.last_name,
+        identification: payer.identification
+          ? {
+              type: payer.identification.type || "CPF",
+              number: payer.identification.number,
+            }
+          : undefined,
+      },
+      notification_url,
+      external_reference: orderId,
+    };
+
+    const mpRes = await fetch("https://api.mercadopago.com/v1/payments", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${MP_ACCESS_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const text = await mpRes.text();
+    let data: any = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = { raw: text };
+    }
+
+    if (!mpRes.ok) {
+      console.error("Mercado Pago error:", mpRes.status, data);
+      return res.status(mpRes.status).json({
+        error: "Mercado Pago error",
+        status: mpRes.status,
+        details: data,
+        sent: body,
+      });
+    }
+
+    // Pega o QR e o código copia e cola
+    const qr = data?.point_of_interaction?.transaction_data?.qr_code_base64;
+    const copiaECola = data?.point_of_interaction?.transaction_data?.qr_code;
+    const paymentId = data?.id;
 
     return res.status(200).json({
-      mpPaymentId: String(payment.id),
-      status: String(payment.status),
-      qrCodeCopyPaste,
-      qrCodeBase64
+      ok: true,
+      orderId,
+      paymentId,
+      qr_code_base64: qr,
+      qr_code: copiaECola,
+      status: data?.status,
     });
   } catch (e: any) {
-    return res.status(500).json({ error: e?.message || "Erro interno" });
+    console.error("create-pix API error:", e);
+    return res.status(500).json({ error: e?.message || "Internal error" });
   }
 }
