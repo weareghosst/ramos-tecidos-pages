@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { supabase } from "../shared/supabaseClient";
-
 
 export default function Checkout() {
   const cartKey = "ramos_cart_v1";
@@ -25,53 +23,82 @@ export default function Checkout() {
     }
   }, []);
 
-async function safeJson(res: Response) {
-  const text = await res.text();
-  try {
-    return text ? JSON.parse(text) : {};
-  } catch {
-    return { error: "Resposta inválida do servidor", raw: text };
+  async function safeJson(res: Response) {
+    const text = await res.text();
+    try {
+      return text ? JSON.parse(text) : {};
+    } catch {
+      return { error: "Resposta inválida do servidor", raw: text };
+    }
   }
-}
 
-
+  function calcTotal(items: any[]) {
+    return items.reduce((acc: number, i: any) => {
+      const meters = Number(i.meters || 0);
+      const ppm = Number(i.price_per_meter || 0);
+      return acc + meters * ppm;
+    }, 0);
+  }
 
   async function handleCheckout() {
     setLoading(true);
     try {
       const items = JSON.parse(localStorage.getItem(cartKey) || "[]");
 
-      // 1) cria pedido no Supabase
+      if (!items.length) {
+        alert("Carrinho vazio.");
+        return;
+      }
+
+      const total = calcTotal(items);
+      if (!total || total <= 0) {
+        alert("Total inválido no carrinho. Verifique metros e preço por metro.");
+        return;
+      }
+
+      // 1) cria pedido
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customer: { name, email, phone },
-          items
-        })
+          items,
+        }),
       });
 
       const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || "Erro ao criar pedido");
 
-      setOrderId(data.orderId);
+      const createdOrderId = data.orderId as string;
+      if (!createdOrderId) throw new Error("API /api/orders não retornou orderId");
 
-      // 2) gera Pix no Mercado Pago
+      setOrderId(createdOrderId);
+
+      // 2) monta payer (first_name / last_name)
+      const [first, ...rest] = name.trim().split(/\s+/);
+      const payer = {
+        email,
+        first_name: first || name,
+        last_name: rest.join(" ") || "Cliente",
+      };
+
+      // 3) gera Pix
       const pixRes = await fetch("/api/mercadopago/create-pix", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId: data.orderId })
+        body: JSON.stringify({
+          orderId: createdOrderId,
+          amount: total,
+          payer,
+        }),
       });
 
-      const pixText = await pixRes.text();
-let pix: any = {};
-try { pix = JSON.parse(pixText); } catch { pix = { error: pixText }; }
-
-
+      const pix = await safeJson(pixRes);
       if (!pixRes.ok) throw new Error(pix.error || "Erro ao gerar Pix");
 
-      setQrBase64(pix.qrCodeBase64);
-      setQrCopyPaste(pix.qrCodeCopyPaste);
+      // nomes corretos do backend:
+      setQrBase64(pix.qr_code_base64 || null);
+      setQrCopyPaste(pix.qr_code || null);
       setStatus(pix.status || "pending");
     } catch (e: any) {
       alert(e?.message || "Erro");
@@ -80,15 +107,17 @@ try { pix = JSON.parse(pixText); } catch { pix = { error: pixText }; }
     }
   }
 
-  // 3) fica consultando o status do pedido (pra mudar pra "paid" quando confirmar)
+  // consulta status do pedido
   useEffect(() => {
     if (!orderId) return;
 
     const t = setInterval(async () => {
       const r = await fetch(`/api/order-status?orderId=${orderId}`);
       const j = await r.json();
+
       if (r.ok) {
         setStatus(j.status);
+
         if (j.status === "paid") {
           clearInterval(t);
           // opcional: limpar carrinho quando confirmar pagamento
@@ -108,7 +137,13 @@ try { pix = JSON.parse(pixText); } catch { pix = { error: pixText }; }
 
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: 24 }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <header
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}
+      >
         <h1 style={{ margin: 0 }}>Checkout</h1>
         <nav style={{ display: "flex", gap: 12 }}>
           <Link href="/carrinho">Carrinho</Link>
@@ -118,7 +153,9 @@ try { pix = JSON.parse(pixText); } catch { pix = { error: pixText }; }
 
       {!orderId ? (
         <>
-          <p style={{ marginTop: 18 }}>Preencha seus dados para finalizar e gerar o Pix.</p>
+          <p style={{ marginTop: 18 }}>
+            Preencha seus dados para finalizar e gerar o Pix.
+          </p>
 
           <div style={{ display: "grid", gap: 10, maxWidth: 420 }}>
             <input
@@ -166,7 +203,12 @@ try { pix = JSON.parse(pixText); } catch { pix = { error: pixText }; }
               <img
                 alt="QR Code Pix"
                 src={`data:image/png;base64,${qrBase64}`}
-                style={{ width: 240, height: 240, border: "1px solid #333", borderRadius: 12 }}
+                style={{
+                  width: 240,
+                  height: 240,
+                  border: "1px solid #333",
+                  borderRadius: 12,
+                }}
               />
             </div>
           )}
@@ -184,7 +226,7 @@ try { pix = JSON.parse(pixText); } catch { pix = { error: pixText }; }
                   marginTop: 12,
                   padding: 12,
                   border: "1px solid #333",
-                  borderRadius: 12
+                  borderRadius: 12,
                 }}
               >
                 {qrCopyPaste}
