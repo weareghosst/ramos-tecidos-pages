@@ -7,13 +7,19 @@ const supabase = createClient(
 );
 
 type Item = {
-  product_id?: string; // se você tiver UUID no supabase
-  id?: string;
+  product_id?: string; // UUID (se existir)
+  id?: string | number; // pode vir "1" do carrinho
   slug?: string;
   name?: string;
   meters: number;
   price_per_meter: number;
 };
+
+// validação simples para UUID (evita mandar "1" como UUID)
+function isUuid(v: any) {
+  if (typeof v !== "string") return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
@@ -60,22 +66,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: orderError.message });
     }
 
-    // 2) cria itens do pedido (se sua tabela order_items existe)
     const orderId = order.id;
 
+    // 2) cria itens do pedido
+    // IMPORTANTE:
+    // - order_items.product_id é UUID no banco
+    // - seu carrinho pode ter id numérico tipo "1"
+    // então só mandamos product_id se for UUID válido; caso contrário, null.
     const orderItemsPayload = safeItems.map((i) => ({
       order_id: orderId,
-      // se sua tabela pede product_id UUID, mande i.product_id (ou i.id se for UUID)
-      product_id: i.product_id || i.id || null,
+      product_id: isUuid(i.product_id) ? i.product_id : null,
       meters: i.meters,
       price_per_meter: i.price_per_meter,
+      // Se você tiver colunas extras, pode salvar aqui:
+      // product_name: i.name ?? null,
+      // product_slug: i.slug ?? null,
     }));
 
     const { error: itemsError } = await supabase.from("order_items").insert(orderItemsPayload);
 
     if (itemsError) {
       console.error("order_items insert error:", itemsError);
-      // Se falhar itens, você pode optar por apagar o pedido, mas por enquanto só retorna erro
       return res.status(500).json({ error: itemsError.message });
     }
 
