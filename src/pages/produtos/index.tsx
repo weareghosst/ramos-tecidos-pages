@@ -1,6 +1,7 @@
 import Header from "../../components/Header";
 import Container from "../../components/Container";
 import ProductCard from "../../components/ProductCard";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const products = [
   {

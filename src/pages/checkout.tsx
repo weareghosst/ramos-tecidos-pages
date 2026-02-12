@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export default function Checkout() {
   const cartKey = "ramos_cart_v1";
@@ -94,7 +95,15 @@ export default function Checkout() {
       });
 
       const pix = await safeJson(pixRes);
-      if (!pixRes.ok) throw new Error(pix.error || "Erro ao gerar Pix");
+      if (!pixRes.ok) {
+  const msg =
+    pix?.mp_message ||
+    pix?.error ||
+    pix?.details?.message ||
+    "Erro ao gerar Pix";
+  throw new Error(msg);
+}
+
 
       // nomes corretos do backend:
       setQrBase64(pix.qr_code_base64 || null);

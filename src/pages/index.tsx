@@ -2,6 +2,7 @@ import Link from "next/link";
 import Header from "../components/Header";
 import Container from "../components/Container";
 import ProductCard from "../components/ProductCard";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 const featured = [
   { id: "1", name: "Tricoline Floral Azul", price_per_meter: 24.9, slug: "tricoline-floral-azul" },
