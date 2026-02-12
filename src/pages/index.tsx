@@ -1,8 +1,6 @@
 import Link from "next/link";
-import Header from "../components/Header";
-import Container from "../components/Container";
 import ProductCard from "../components/ProductCard";
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const featured = [
   { id: "1", name: "Tricoline Floral Azul", price_per_meter: 24.9, slug: "tricoline-floral-azul" },
@@ -27,132 +25,148 @@ const newArrivals = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-black text-white">
-      <Header />
+    <>
+      <SpeedInsights />
 
-      <main className="py-10">
-        <Container>
-          {/* HERO */}
-          <section className="rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h1 className="text-3xl font-bold">Ramos Tecidos</h1>
-                <p className="mt-2 max-w-2xl text-white/70">
-                  Tecidos por metro com compra rápida no Pix. Escolha a metragem em múltiplos de 0,5m e finalize seu pedido em minutos.
-                </p>
+      {/* HERO */}
+      <section className="card p-6 sm:p-8">
+        <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              Ramos Tecidos
+            </h1>
 
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Link
-                    href="/produtos"
-                    className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
-                  >
-                    Ver catálogo
-                  </Link>
+            <p className="mt-3 max-w-2xl text-slate-600">
+              Tecidos por metro com compra rápida no Pix. Escolha a metragem em
+              múltiplos de <strong>0,5m</strong> e finalize seu pedido em minutos.
+            </p>
 
-                  <Link
-                    href="/carrinho"
-                    className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5 transition"
-                  >
-                    Ir para o carrinho
-                  </Link>
-                </div>
-              </div>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href="/produtos" className="btn-primary px-5 py-3">
+                Ver catálogo
+              </Link>
 
-              {/* “Banner” visual simples */}
-              <div className="rounded-2xl border border-white/10 bg-black/40 p-5 md:w-[320px]">
-                <p className="text-sm font-semibold text-white">Pagamento</p>
-                <p className="mt-1 text-white/70">Pix (rápido)</p>
-
-                <div className="mt-4 grid gap-2 text-sm text-white/70">
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3">✅ Pedido registrado na hora</div>
-                  <div className="rounded-xl border border-white/10 bg-white/5 p-3">✅ Atendimento via WhatsApp</div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* DESTAQUES */}
-          <section className="mt-10">
-            <div className="mb-4 flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold">Destaques</h2>
-                <p className="mt-1 text-sm text-white/60">Os tecidos mais procurados.</p>
-              </div>
-
-              <Link
-                href="/produtos"
-                className="text-sm font-semibold text-white/80 hover:text-white transition"
-              >
-                Ver todos →
+              <Link href="/carrinho" className="btn-outline px-5 py-3">
+                Ir para o carrinho
               </Link>
             </div>
 
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {featured.map((p) => (
-                <ProductCard key={p.id} product={p as any} />
-              ))}
+            <div className="mt-6 flex flex-wrap gap-2 text-sm text-slate-600">
+              <span className="badge bg-slate-100 text-slate-700">Pix rápido</span>
+              <span className="badge bg-slate-100 text-slate-700">Sem cadastro</span>
+              <span className="badge bg-slate-100 text-slate-700">Compra por metro</span>
             </div>
-          </section>
+          </div>
 
-          {/* NOVIDADES */}
-          <section className="mt-12">
-            <div className="mb-4 flex items-end justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-semibold">Novidades</h2>
-                <p className="mt-1 text-sm text-white/60">Chegaram agora — dá uma olhada.</p>
+          {/* Card lateral */}
+          <div className="card p-5 lg:w-[360px]">
+            <p className="text-sm font-semibold text-slate-900">Pagamento</p>
+            <p className="mt-1 text-slate-600">Pix (rápido)</p>
+
+            <div className="mt-4 grid gap-2 text-sm">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                ✅ Pedido registrado na hora
               </div>
-
-              <Link
-                href="/produtos"
-                className="text-sm font-semibold text-white/80 hover:text-white transition"
-              >
-                Ver catálogo →
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {newArrivals.map((p) => (
-                <ProductCard key={p.id} product={p as any} />
-              ))}
-            </div>
-          </section>
-
-          {/* BENEFÍCIOS */}
-          <section className="mt-12 grid gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <p className="font-semibold">✅ Compra rápida</p>
-              <p className="mt-1 text-sm text-white/60">Checkout direto e sem complicação.</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <p className="font-semibold">✅ Múltiplos de 0,5m</p>
-              <p className="mt-1 text-sm text-white/60">Escolha a metragem ideal pro seu projeto.</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <p className="font-semibold">✅ Atendimento</p>
-              <p className="mt-1 text-sm text-white/60">Tire dúvidas pelo WhatsApp.</p>
-            </div>
-          </section>
-
-          {/* CTA FINAL */}
-          <section className="mt-12 rounded-2xl border border-white/10 bg-white/5 p-6">
-            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-              <div>
-                <h3 className="text-xl font-semibold">Pronto pra escolher seu tecido?</h3>
-                <p className="mt-1 text-sm text-white/60">
-                  Veja o catálogo completo e finalize no Pix.
-                </p>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                ✅ Atendimento via WhatsApp
               </div>
-
-              <Link
-                href="/produtos"
-                className="rounded-xl bg-white px-5 py-3 text-sm font-semibold text-black hover:bg-white/90 transition"
-              >
-                Ir para produtos
-              </Link>
             </div>
-          </section>
-        </Container>
-      </main>
-    </div>
+
+            <Link
+              href="/checkout"
+              className="mt-4 btn-primary w-full px-5 py-3"
+            >
+              Finalizar agora
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* DESTAQUES */}
+      <section className="mt-10">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold">Destaques</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Os tecidos mais procurados.
+            </p>
+          </div>
+
+          <Link href="/produtos" className="text-sm font-semibold text-slate-900 hover:text-slate-700">
+            Ver todos →
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {featured.map((p) => (
+            <ProductCard key={p.id} product={p as any} />
+          ))}
+        </div>
+      </section>
+
+      {/* NOVIDADES */}
+      <section className="mt-12">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold">Novidades</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Chegaram agora — dá uma olhada.
+            </p>
+          </div>
+
+          <Link href="/produtos" className="text-sm font-semibold text-slate-900 hover:text-slate-700">
+            Ver catálogo →
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {newArrivals.map((p) => (
+            <ProductCard key={p.id} product={p as any} />
+          ))}
+        </div>
+      </section>
+
+      {/* BENEFÍCIOS */}
+      <section className="mt-12 grid gap-4 md:grid-cols-3">
+        <div className="card p-5">
+          <p className="font-semibold">✅ Compra rápida</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Checkout direto e sem complicação.
+          </p>
+        </div>
+
+        <div className="card p-5">
+          <p className="font-semibold">✅ Múltiplos de 0,5m</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Escolha a metragem ideal pro seu projeto.
+          </p>
+        </div>
+
+        <div className="card p-5">
+          <p className="font-semibold">✅ Atendimento</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Tire dúvidas pelo WhatsApp.
+          </p>
+        </div>
+      </section>
+
+      {/* CTA FINAL */}
+      <section className="mt-12 card p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h3 className="text-xl font-semibold">
+              Pronto pra escolher seu tecido?
+            </h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Veja o catálogo completo e finalize no Pix.
+            </p>
+          </div>
+
+          <Link href="/produtos" className="btn-primary px-5 py-3">
+            Ir para produtos
+          </Link>
+        </div>
+      </section>
+    </>
   );
 }

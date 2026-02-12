@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import Header from "../components/Header";
-import Container from "../components/Container";
 
 const CART_KEY = "ramos_cart_v1";
 
@@ -11,6 +9,7 @@ type CartItem = {
   name: string;
   price_per_meter: number;
   meters: number;
+  image?: string;
 };
 
 function formatBRL(value?: number) {
@@ -58,184 +57,160 @@ export default function Carrinho() {
   }
 
   const total = useMemo(() => {
-    return items.reduce(
-      (acc, i) => acc + (i.meters || 0) * (i.price_per_meter || 0),
-      0
-    );
+    return items.reduce((acc, i) => acc + (i.meters || 0) * (i.price_per_meter || 0), 0);
   }, [items]);
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <Header />
+    <main>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold">Carrinho</h1>
+          <p className="mt-1 text-slate-600">
+            Ajuste a metragem (múltiplos de 0,5m) e finalize no Pix.
+          </p>
+        </div>
 
-      <main className="py-10">
-        <Container>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Carrinho</h1>
-              <p className="mt-1 text-white/60">
-                Ajuste a metragem (múltiplos de 0,5m) e finalize no Pix.
+        <div className="flex gap-2">
+          <Link href="/produtos" className="btn-outline px-4 py-2 text-sm">
+            Continuar comprando
+          </Link>
+
+          <button onClick={clearCart} disabled={!items.length} className="btn-outline px-4 py-2 text-sm disabled:opacity-50">
+            Limpar
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-12">
+        {/* Itens */}
+        <div className="lg:col-span-8 space-y-4">
+          {!items.length ? (
+            <div className="card p-6">
+              <p className="text-slate-600">Seu carrinho está vazio.</p>
+              <Link href="/produtos" className="btn-primary mt-4 inline-flex px-5 py-3 text-sm">
+                Ver produtos
+              </Link>
+            </div>
+          ) : (
+            items.map((item) => {
+              const sub = (item.meters || 0) * (item.price_per_meter || 0);
+
+              return (
+                <div key={item.slug} className="card p-4 hover:shadow-md transition">
+                  <div className="flex gap-4">
+                    {/* “Foto” / placeholder */}
+                    <div className="h-20 w-20 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 overflow-hidden">
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <span className="text-xs">Sem imagem</span>
+                      )}
+                    </div>
+
+                    <div className="flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <Link href={`/produto/${item.slug}`} className="font-semibold text-slate-900 hover:underline">
+                            {item.name}
+                          </Link>
+                          <p className="mt-1 text-sm text-slate-600">
+                            {formatBRL(item.price_per_meter)} <span className="text-slate-400">/ metro</span>
+                          </p>
+                        </div>
+
+                        <button onClick={() => removeItem(item.slug)} className="text-sm text-slate-500 hover:text-slate-900 transition">
+                          Remover
+                        </button>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+                        {/* Controle de metros */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => dec(item.slug)}
+                            className="h-9 w-9 rounded-xl border border-slate-300 hover:bg-slate-50 transition"
+                            aria-label="Diminuir metragem"
+                          >
+                            -
+                          </button>
+
+                          <div className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm">
+                            <span className="font-semibold text-slate-900">
+                              {String(item.meters ?? 0.5).replace(".", ",")}m
+                            </span>
+                            <span className="ml-2 text-slate-500">(0,5m)</span>
+                          </div>
+
+                          <button
+                            onClick={() => inc(item.slug)}
+                            className="h-9 w-9 rounded-xl border border-slate-300 hover:bg-slate-50 transition"
+                            aria-label="Aumentar metragem"
+                          >
+                            +
+                          </button>
+                        </div>
+
+                        {/* Subtotal */}
+                        <div className="text-right">
+                          <p className="text-xs text-slate-500">Subtotal</p>
+                          <p className="text-lg font-semibold text-slate-900">{formatBRL(sub)}</p>
+                        </div>
+                      </div>
+
+                      <p className="mt-3 text-xs text-slate-500">
+                        Pagamento via Pix • Confirmação automática após pagar.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Resumo */}
+        <aside className="lg:col-span-4">
+          <div className="card p-6 lg:sticky lg:top-6">
+            <h2 className="text-lg font-semibold">Resumo do pedido</h2>
+
+            <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
+              <span>Itens</span>
+              <span className="font-medium text-slate-900">{items.length}</span>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between text-sm text-slate-600">
+              <span>Total</span>
+              <span className="text-slate-900 font-semibold">{formatBRL(total)}</span>
+            </div>
+
+            <div className="mt-2 text-xs text-slate-500">
+              Você paga via Pix e a confirmação é automática.
+            </div>
+
+            <div className="mt-6">
+              <Link
+                href="/checkout"
+                className={`w-full ${items.length ? "btn-primary" : "btn-primary pointer-events-none opacity-50"}`}
+              >
+                Ir para checkout
+              </Link>
+
+              <p className="mt-3 text-xs text-slate-500">
+                Frete será calculado no checkout pelo CEP.
               </p>
             </div>
 
-            <div className="flex gap-2">
-              <Link
-                href="/produtos"
-                className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white hover:bg-white/5 transition"
-              >
-                Continuar comprando
-              </Link>
-              <button
-                onClick={clearCart}
-                disabled={!items.length}
-                className="rounded-xl border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 hover:bg-white/5 transition disabled:opacity-40"
-              >
-                Limpar
-              </button>
+            <div className="mt-6 space-y-2 text-sm text-slate-700">
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                ✅ Múltiplos de 0,5m
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                ✅ Compra rápida e segura
+              </div>
             </div>
           </div>
-
-          <div className="mt-8 grid gap-6 md:grid-cols-3">
-            {/* Itens */}
-            <div className="md:col-span-2 space-y-4">
-              {!items.length ? (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-6">
-                  <p className="text-white/70">Seu carrinho está vazio.</p>
-                  <Link
-                    href="/produtos"
-                    className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-semibold text-black hover:bg-white/90 transition"
-                  >
-                    Ver produtos
-                  </Link>
-                </div>
-              ) : (
-                items.map((item) => {
-                  const sub = (item.meters || 0) * (item.price_per_meter || 0);
-
-                  return (
-                    <div
-                      key={item.slug}
-                      className="rounded-2xl border border-white/10 bg-white/5 p-4 transition hover:bg-white/10 hover:border-white/20"
-                    >
-                      <div className="flex gap-4">
-                        <div className="h-20 w-20 rounded-xl bg-white/10 flex items-center justify-center text-white/40">
-                          Foto
-                        </div>
-
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <Link
-                                href={`/produto/${item.slug}`}
-                                className="font-semibold text-white hover:underline"
-                              >
-                                {item.name}
-                              </Link>
-                              <p className="mt-1 text-sm text-white/60">
-                                {formatBRL(item.price_per_meter)}{" "}
-                                <span className="text-white/50">/ metro</span>
-                              </p>
-                            </div>
-
-                            <button
-                              onClick={() => removeItem(item.slug)}
-                              className="text-sm text-white/60 hover:text-white transition"
-                            >
-                              Remover
-                            </button>
-                          </div>
-
-                          <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
-                            {/* Controle de metros */}
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => dec(item.slug)}
-                                className="h-9 w-9 rounded-xl border border-white/15 hover:bg-white/5 transition"
-                              >
-                                -
-                              </button>
-
-                              <div className="rounded-xl border border-white/15 bg-black/30 px-4 py-2 text-sm">
-                                <span className="font-semibold">
-                                  {String(item.meters ?? 0.5).replace(".", ",")}m
-                                </span>
-                                <span className="ml-2 text-white/60">(0,5m)</span>
-                              </div>
-
-                              <button
-                                onClick={() => inc(item.slug)}
-                                className="h-9 w-9 rounded-xl border border-white/15 hover:bg-white/5 transition"
-                              >
-                                +
-                              </button>
-                            </div>
-
-                            {/* Subtotal */}
-                            <div className="text-right">
-                              <p className="text-xs text-white/60">Subtotal</p>
-                              <p className="text-lg font-semibold">
-                                {formatBRL(sub)}
-                              </p>
-                            </div>
-                          </div>
-
-                          <p className="mt-3 text-xs text-white/60">
-                            Pagamento via Pix • Confirmação automática após pagar.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Resumo */}
-            <aside className="rounded-2xl border border-white/10 bg-white/5 p-6 h-fit">
-              <h2 className="text-lg font-semibold">Resumo do pedido</h2>
-
-              <div className="mt-4 flex items-center justify-between text-sm text-white/70">
-                <span>Itens</span>
-                <span>{items.length}</span>
-              </div>
-
-              <div className="mt-2 flex items-center justify-between text-sm text-white/70">
-                <span>Total</span>
-                <span className="text-white font-semibold">{formatBRL(total)}</span>
-              </div>
-
-              <div className="mt-2 text-xs text-white/60">
-                Você paga via Pix e a confirmação é automática.
-              </div>
-
-              <div className="mt-6">
-                <Link
-                  href="/checkout"
-                  className={`block w-full rounded-xl px-4 py-3 text-center text-sm font-semibold transition ${
-                    items.length
-                      ? "bg-white text-black hover:bg-white/90"
-                      : "bg-white/20 text-white/50 pointer-events-none"
-                  }`}
-                >
-                  Ir para checkout
-                </Link>
-
-                <p className="mt-3 text-xs text-white/50">
-                </p>
-              </div>
-
-              <div className="mt-6 space-y-2 text-sm text-white/70">
-                <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-                  ✅ Múltiplos de 0,5m
-                </div>
-                <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-                  ✅ Compra rápida e segura
-                </div>
-              </div>
-            </aside>
-          </div>
-        </Container>
-      </main>
-    </div>
+        </aside>
+      </div>
+    </main>
   );
 }

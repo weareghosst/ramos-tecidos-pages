@@ -10,28 +10,34 @@ type Product = {
 
 export default function ProductCard({ product }: { product: Product }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/5 p-4 hover:bg-white/10 transition">
-      <div className="aspect-square w-full rounded-xl bg-white/10 mb-4 flex items-center justify-center text-white/40">
+    <div className="card p-4 lift">
+      {/* Imagem */}
+      <div className="aspect-square w-full rounded-xl bg-slate-100 mb-4 flex items-center justify-center overflow-hidden">
         {product.image ? (
           <img
             src={product.image}
             alt={product.name}
-            className="h-full w-full object-cover rounded-xl"
+            className="h-full w-full object-cover"
           />
         ) : (
-          <span>Sem imagem</span>
+          <span className="text-sm text-slate-400">Sem imagem</span>
         )}
       </div>
 
-      <h3 className="font-semibold text-white">{product.name}</h3>
+      {/* Nome */}
+      <h3 className="font-semibold text-slate-900 line-clamp-2">
+        {product.name}
+      </h3>
 
-      <p className="mt-1 text-sm text-white/70">
+      {/* Preço */}
+      <p className="mt-1 text-sm text-slate-600">
         R$ {product.price_per_meter.toFixed(2)} / metro
       </p>
 
+      {/* CTA */}
       <Link
         href={`/produto/${product.slug}`}
-        className="mt-4 inline-block w-full rounded-xl bg-white px-3 py-2 text-center text-sm font-semibold text-black hover:bg-white/90"
+        className="btn-primary mt-4 w-full text-sm press"
       >
         Ver produto
       </Link>

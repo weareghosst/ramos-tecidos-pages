@@ -2,32 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
-
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+  @apply bg-white text-slate-900 antialiased;
 }
 
-html, body { height: 100%; }
-
-
-.bg-soft {
-  background:
-    radial-gradient(800px 400px at 20% 10%, rgba(255,255,255,0.08), transparent 60%),
-    radial-gradient(700px 350px at 80% 0%, rgba(255,255,255,0.06), transparent 55%),
-    #000;
+a {
+  @apply text-slate-900 hover:text-slate-700;
 }
 
+/* Componentes reutilizáveis */
+@layer components {
+  .container-page {
+    @apply max-w-6xl mx-auto px-4 sm:px-6;
+  }
+
+  .card {
+    @apply bg-white border border-slate-200 rounded-2xl shadow-sm;
+  }
+
+  .btn {
+    @apply inline-flex items-center justify-center rounded-xl px-4 py-2 font-semibold transition;
+  }
+
+  .btn-primary {
+    @apply btn bg-slate-900 text-white hover:bg-slate-800 disabled:bg-slate-300 disabled:cursor-not-allowed;
+  }
+
+  .btn-outline {
+    @apply btn border border-slate-300 hover:bg-slate-50;
+  }
+
+  .input {
+    @apply w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400
+    focus:outline-none focus:ring-2 focus:ring-slate-900/20 focus:border-slate-400;
+  }
+
+  .label {
+    @apply text-sm font-medium text-slate-700;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .badge-paid {
+    @apply badge bg-green-100 text-green-700;
+  }
+  .badge-pending {
+    @apply badge bg-amber-100 text-amber-700;
+  }
+  .badge-shipped {
+    @apply badge bg-blue-100 text-blue-700;
+  }
+}
+
+@layer utilities {
+  /* Card “levanta” no hover */
+  .lift {
+    @apply transition-transform duration-200 ease-out hover:-translate-y-0.5 hover:shadow-md;
+  }
+
+  /* Botão com sensação de clique */
+  .press {
+    @apply active:scale-[0.98] transition-transform duration-150;
+  }
+
+  /* Fade-in suave para seções */
+  .fade-in {
+    animation: fadeIn 220ms ease-out both;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Shimmer (skeleton) */
+  .skeleton {
+    position: relative;
+    overflow: hidden;
+    background: #f1f5f9; /* slate-100 */
+  }
+  .skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.65), transparent);
+    animation: shimmer 1.1s infinite;
+  }
+
+  @keyframes shimmer {
+    100% { transform: translateX(100%); }
+  }
+}
