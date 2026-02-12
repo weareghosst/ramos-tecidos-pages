@@ -86,7 +86,6 @@ export default function Checkout() {
       const j = await safeJson(r);
       if (!r.ok) throw new Error(j.error || "Erro ao cotar frete");
 
-      // Preenche endereço com ViaCEP (mas mantém número/complemento pro usuário)
       setStreet(j?.address?.street || "");
       setDistrict(j?.address?.district || "");
       setCity(j?.address?.city || "");
@@ -95,7 +94,6 @@ export default function Checkout() {
       const opts: ShippingOption[] = j?.options || [];
       setShippingOptions(opts);
 
-      // auto seleciona a primeira opção
       if (opts.length) {
         setSelectedShippingId(opts[0].id);
         setShippingPrice(Number(opts[0].price || 0));
@@ -107,7 +105,6 @@ export default function Checkout() {
     }
   }
 
-  // Quando CEP tiver 8 dígitos, cotar
   useEffect(() => {
     const c = cleanCep(cep);
     if (c.length === 8) {
@@ -118,7 +115,6 @@ export default function Checkout() {
       setSelectedShippingId("");
       setShippingPrice(0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cep]);
 
   function onSelectShipping(id: string) {
@@ -132,25 +128,13 @@ export default function Checkout() {
     try {
       const items = JSON.parse(localStorage.getItem(cartKey) || "[]");
 
-      if (!items.length) {
-        alert("Carrinho vazio.");
-        return;
-      }
-
-      if (!selectedShippingId) {
-        alert("Selecione uma opção de frete.");
-        return;
-      }
+      if (!items.length) throw new Error("Carrinho vazio.");
+      if (!selectedShippingId) throw new Error("Selecione um frete.");
 
       const itemsTotal = calcItemsTotal(items);
       const total = itemsTotal + Number(shippingPrice || 0);
+      if (total <= 0) throw new Error("Total inválido.");
 
-      if (!total || total <= 0) {
-        alert("Total inválido. Verifique carrinho e frete.");
-        return;
-      }
-
-      // 1) cria pedido com endereço + frete
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -174,12 +158,8 @@ export default function Checkout() {
       const data = await safeJson(res);
       if (!res.ok) throw new Error(data.error || "Erro ao criar pedido");
 
-      const createdOrderId = data.orderId as string;
-      if (!createdOrderId) throw new Error("API /api/orders não retornou orderId");
+      setOrderId(data.orderId);
 
-      setOrderId(createdOrderId);
-
-      // 2) gera Pix com total (itens + frete)
       const [first, ...rest] = name.trim().split(/\s+/);
       const payer = {
         email,
@@ -191,37 +171,31 @@ export default function Checkout() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          orderId: createdOrderId,
+          orderId: data.orderId,
           amount: total,
           payer,
         }),
       });
 
       const pix = await safeJson(pixRes);
-if (!pixRes.ok) {
-  alert("Erro do Pix:\n" + JSON.stringify(pix, null, 2));
-  throw new Error(pix?.mp_message || pix?.error || "Erro ao gerar Pix");
-}
-
+      if (!pixRes.ok) throw new Error("Erro ao gerar Pix");
 
       setQrBase64(pix.qr_code_base64 || null);
       setQrCopyPaste(pix.qr_code || null);
       setStatus(pix.status || "pending");
     } catch (e: any) {
-      alert(e?.message || "Erro");
+      alert(e.message || "Erro");
     } finally {
       setLoading(false);
     }
   }
 
-  // consulta status do pedido (mantém por enquanto)
   useEffect(() => {
     if (!orderId) return;
 
     const t = setInterval(async () => {
       const r = await fetch(`/api/order-status?orderId=${orderId}`);
       const j = await r.json();
-
       if (r.ok) {
         setStatus(j.status);
         if (j.status === "paid") clearInterval(t);
@@ -237,23 +211,10 @@ if (!pixRes.ok) {
     alert("Pix copiado!");
   }
 
-  const disabled =
-    !name ||
-    !email ||
-    !phone ||
-    cleanCep(cep).length !== 8 ||
-    !street ||
-    !number ||
-    !district ||
-    !city ||
-    !stateUf ||
-    !selectedShippingId ||
-    loading;
-
   return (
     <main style={{ maxWidth: 960, margin: "0 auto", padding: 24 }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h1 style={{ margin: 0 }}>Checkout</h1>
+      <header style={{ display: "flex", justifyContent: "space-between" }}>
+        <h1>Checkout</h1>
         <nav style={{ display: "flex", gap: 12 }}>
           <Link href="/carrinho">Carrinho</Link>
           <Link href="/produtos">Produtos</Link>
@@ -261,99 +222,49 @@ if (!pixRes.ok) {
       </header>
 
       {!orderId ? (
-        <>
-          <p style={{ marginTop: 18 }}>
-            Preencha seus dados e endereço para finalizar e gerar o Pix.
-          </p>
-
-          <div style={{ display: "grid", gap: 10, maxWidth: 440 }}>
-            <input placeholder="Nome completo" value={name} onChange={(e) => setName(e.target.value)} style={{ padding: 10 }} />
-            <input placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} style={{ padding: 10 }} />
-            <input placeholder="WhatsApp" value={phone} onChange={(e) => setPhone(e.target.value)} style={{ padding: 10 }} />
-
-            <hr style={{ opacity: 0.2 }} />
-
-            <input placeholder="CEP" value={cep} onChange={(e) => setCep(cleanCep(e.target.value))} style={{ padding: 10 }} />
-
-            {shippingLoading && <p style={{ fontSize: 12, opacity: 0.8 }}>Cotando frete...</p>}
-            {shippingError && <p style={{ fontSize: 12, color: "#ff6b6b" }}>{shippingError}</p>}
-
-            <input placeholder="Rua" value={street} onChange={(e) => setStreet(e.target.value)} style={{ padding: 10 }} />
-            <input placeholder="Número" value={number} onChange={(e) => setNumber(e.target.value)} style={{ padding: 10 }} />
-            <input placeholder="Complemento (opcional)" value={complement} onChange={(e) => setComplement(e.target.value)} style={{ padding: 10 }} />
-            <input placeholder="Bairro" value={district} onChange={(e) => setDistrict(e.target.value)} style={{ padding: 10 }} />
-            <input placeholder="Cidade" value={city} onChange={(e) => setCity(e.target.value)} style={{ padding: 10 }} />
-            <input placeholder="UF (ex: SP)" value={stateUf} onChange={(e) => setStateUf(e.target.value.toUpperCase())} style={{ padding: 10 }} />
-
-            <div style={{ marginTop: 6, padding: 10, border: "1px solid #333", borderRadius: 12 }}>
-              <p style={{ margin: 0, fontSize: 12, opacity: 0.8 }}>Escolha o frete</p>
-
-              {shippingOptions.length === 0 ? (
-                <p style={{ marginTop: 8, fontSize: 12, opacity: 0.7 }}>
-                  Informe um CEP válido para ver opções.
-                </p>
-              ) : (
-                <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
-                  {shippingOptions.map((opt) => (
-                    <label key={opt.id} style={{ display: "flex", gap: 10, alignItems: "center", cursor: "pointer" }}>
-                      <input
-                        type="radio"
-                        name="shipping"
-                        checked={selectedShippingId === opt.id}
-                        onChange={() => onSelectShipping(opt.id)}
-                      />
-                      <span style={{ fontSize: 13 }}>
-                        <strong>{opt.label}</strong>{" "}
-                        — R$ {Number(opt.price).toFixed(2)} ({opt.days_min}-{opt.days_max} dias)
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button onClick={handleCheckout} disabled={disabled} style={{ padding: 12 }}>
-              {loading ? "Gerando..." : "Finalizar e gerar Pix"}
-            </button>
-          </div>
-        </>
+        <button onClick={handleCheckout} disabled={loading}>
+          {loading ? "Gerando..." : "Finalizar e gerar Pix"}
+        </button>
       ) : (
         <>
-          <p style={{ marginTop: 18 }}>
-            Pedido: <strong>{orderId}</strong>
-          </p>
+          <p>Pedido: <strong>{orderId}</strong></p>
 
-          {status === "paid" ? <h2>✅ Pagamento confirmado!</h2> : <h2>⏳ Aguardando pagamento...</h2>}
+          {status === "paid" ? (
+            <div className="max-w-md mx-auto text-center mt-10">
+              <h2 className="text-2xl font-bold text-green-600">
+                Pagamento confirmado 🎉
+              </h2>
 
-          {qrBase64 && (
-            <div style={{ marginTop: 16 }}>
-              <img
-                alt="QR Code Pix"
-                src={`data:image/png;base64,${qrBase64}`}
-                style={{ width: 240, height: 240, border: "1px solid #333", borderRadius: 12 }}
-              />
+              <p className="mt-4 text-gray-700">
+                Enviamos um e-mail confirmando a sua compra.
+              </p>
+
+              <p className="text-gray-700">
+                Todas as atualizações do pedido chegarão por e-mail.
+              </p>
+
+              <p className="mt-6 text-sm text-gray-500">
+                Caso não encontre o e-mail, verifique sua caixa de spam.
+              </p>
             </div>
-          )}
+          ) : (
+            <>
+              <h2>⏳ Aguardando pagamento...</h2>
 
-          {qrCopyPaste && (
-            <div style={{ marginTop: 16, maxWidth: 520 }}>
-              <button onClick={copyPix} style={{ padding: 10 }}>
-                Copiar Pix
-              </button>
+              {qrBase64 && (
+                <img
+                  src={`data:image/png;base64,${qrBase64}`}
+                  style={{ width: 240, marginTop: 16 }}
+                />
+              )}
 
-              <pre
-                style={{
-                  whiteSpace: "pre-wrap",
-                  wordBreak: "break-all",
-                  marginTop: 12,
-                  padding: 12,
-                  border: "1px solid #333",
-                  borderRadius: 12,
-                }}
-              >
-                {qrCopyPaste}
-              </pre>
-            </div>
+              {qrCopyPaste && (
+                <>
+                  <button onClick={copyPix}>Copiar Pix</button>
+                  <pre>{qrCopyPaste}</pre>
+                </>
+              )}
+            </>
           )}
         </>
       )}
