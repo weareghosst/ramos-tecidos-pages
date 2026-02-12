@@ -87,20 +87,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const diff = Math.abs(orderTotal - amount);
 
     // Se o MP retornou amount 0 por algum motivo, não trava; mas se ambos >0 e dif>1 centavo, não marca como paid
-    if (orderTotal > 0 && amount > 0 && diff > 0.01) {
-      console.error("MP webhook: amount mismatch", { orderId, orderTotal, amount, diff });
+    const FORCE_TEST_AMOUNT = process.env.FORCE_TEST_AMOUNT;
 
-      await supabase
-        .from("orders")
-        .update({
-          mp_payment_id: String(paymentId),
-          mp_status: status,
-          mp_raw: mp,
-        })
-        .eq("id", orderId);
+// Se estiver em teste forçando valor, NÃO bloqueia mismatch
+if (!FORCE_TEST_AMOUNT && orderTotal > 0 && amount > 0 && diff > 0.01) {
+  console.error("MP webhook: amount mismatch", { orderId, orderTotal, amount, diff });
 
-      return res.status(200).json({ ok: true, ignored: true, reason: "amount_mismatch" });
-    }
+  await supabase
+    .from("orders")
+    .update({
+      mp_payment_id: String(paymentId),
+      mp_status: status,
+      mp_raw: mp,
+    })
+    .eq("id", orderId);
+
+  return res.status(200).json({ ok: true, ignored: true, reason: "amount_mismatch" });
+}
+
 
     const isPaid = status === "approved";
 
