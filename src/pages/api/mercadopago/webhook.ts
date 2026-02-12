@@ -12,13 +12,11 @@ function mustEnv(name: string) {
   return v;
 }
 
-// MP pode mandar em formatos diferentes. Vamos tentar extrair um paymentId de tudo.
+// Extrai paymentId dos formatos mais comuns do Mercado Pago
 function extractPaymentId(req: NextApiRequest, body: any) {
-  // formato comum: { type: "payment", data: { id: "123" } }
   const fromBody = body?.data?.id || body?.id;
   if (fromBody) return String(fromBody);
 
-  // alguns casos chegam via query: ?type=payment&data.id=123 / ?id=123
   const q: any = req.query || {};
   const fromQuery = q["data.id"] || q["data[id]"] || q["id"] || q["payment_id"];
   if (fromQuery) return String(Array.isArray(fromQuery) ? fromQuery[0] : fromQuery);
@@ -28,7 +26,6 @@ function extractPaymentId(req: NextApiRequest, body: any) {
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // MP chama POST
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
       return res.status(405).json({ error: "Method not allowed" });
@@ -39,13 +36,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const body = req.body || {};
     const paymentId = extractPaymentId(req, body);
 
+    // Se não veio paymentId, responde 200 pra evitar retries infinitos
     if (!paymentId) {
-      // responde 200 pra não ficar re-tentando sem parar
-      console.warn("Webhook without paymentId:", body, req.query);
+      console.warn("MP webhook: no paymentId", { body, query: req.query });
       return res.status(200).json({ ok: true, ignored: true });
     }
 
-    // Busca o pagamento real no MP (isso é mais seguro do que confiar só no body do webhook)
+    // Busca pagamento real no MP (mais seguro do que confiar só no webhook)
     const mpRes = await fetch(`https://api.mercadopago.com/v1/payments/${paymentId}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${MP_ACCESS_TOKEN}` },
@@ -60,51 +57,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (!mpRes.ok) {
-      console.error("MP payment fetch failed:", mpRes.status, mp);
+      console.error("MP webhook: failed to fetch payment", mpRes.status, mp);
       return res.status(200).json({ ok: true, ignored: true });
     }
 
-    const externalRef = mp?.external_reference; // deve ser seu orderId
-    const status = mp?.status; // approved, pending, rejected, etc.
+    const orderId = mp?.external_reference; // seu orderId
+    const status = String(mp?.status || "unknown"); // approved/pending/rejected...
     const amount = Number(mp?.transaction_amount || 0);
 
-    if (!externalRef) {
-      console.warn("Payment without external_reference:", mp?.id);
+    if (!orderId) {
+      console.warn("MP webhook: payment without external_reference", { paymentId, status });
       return res.status(200).json({ ok: true, ignored: true });
     }
 
-    // Busca pedido no Supabase
+    // Busca pedido no Supabase para validar
     const { data: order, error: orderErr } = await supabase
       .from("orders")
       .select("id,total_price,status")
-      .eq("id", externalRef)
+      .eq("id", orderId)
       .single();
 
     if (orderErr || !order) {
-      console.warn("Order not found for external_reference:", externalRef, orderErr?.message);
+      console.warn("MP webhook: order not found", { orderId, orderErr: orderErr?.message });
       return res.status(200).json({ ok: true, ignored: true });
     }
 
-    // Segurança: valida valor (tolerância de 1 centavo)
+    // Segurança: valor do pagamento bate com total do pedido
     const orderTotal = Number(order.total_price || 0);
     const diff = Math.abs(orderTotal - amount);
 
+    // Se o MP retornou amount 0 por algum motivo, não trava; mas se ambos >0 e dif>1 centavo, não marca como paid
     if (orderTotal > 0 && amount > 0 && diff > 0.01) {
-      console.error("Amount mismatch", { externalRef, orderTotal, amount, diff });
-      // não marca pago se valor não bate
+      console.error("MP webhook: amount mismatch", { orderId, orderTotal, amount, diff });
+
       await supabase
         .from("orders")
         .update({
           mp_payment_id: String(paymentId),
-          mp_status: String(status),
+          mp_status: status,
           mp_raw: mp,
         })
-        .eq("id", externalRef);
+        .eq("id", orderId);
 
       return res.status(200).json({ ok: true, ignored: true, reason: "amount_mismatch" });
     }
 
-    // Atualiza status conforme MP
     const isPaid = status === "approved";
 
     await supabase
@@ -112,16 +109,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .update({
         status: isPaid ? "paid" : "pending",
         mp_payment_id: String(paymentId),
-        mp_status: String(status),
+        mp_status: status,
         mp_raw: mp,
         paid_at: isPaid ? new Date().toISOString() : null,
       })
-      .eq("id", externalRef);
+      .eq("id", orderId);
 
     return res.status(200).json({ ok: true });
   } catch (e: any) {
-    console.error("webhook error:", e);
-    // MP espera 200, mas 500 também faz ele tentar de novo.
+    console.error("MP webhook error:", e);
     return res.status(500).json({ error: e?.message || "Internal error" });
   }
 }
