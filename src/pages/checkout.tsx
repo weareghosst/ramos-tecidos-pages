@@ -198,10 +198,11 @@ export default function Checkout() {
       });
 
       const pix = await safeJson(pixRes);
-      if (!pixRes.ok) {
-        const msg = pix?.mp_message || pix?.error || pix?.details?.message || "Erro ao gerar Pix";
-        throw new Error(msg);
-      }
+if (!pixRes.ok) {
+  alert("Erro do Pix:\n" + JSON.stringify(pix, null, 2));
+  throw new Error(pix?.mp_message || pix?.error || "Erro ao gerar Pix");
+}
+
 
       setQrBase64(pix.qr_code_base64 || null);
       setQrCopyPaste(pix.qr_code || null);
