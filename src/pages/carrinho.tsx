@@ -221,7 +221,6 @@ export default function Carrinho() {
                 </Link>
 
                 <p className="mt-3 text-xs text-white/50">
-                  Em breve: frete por CEP. (Semana 2)
                 </p>
               </div>
 
