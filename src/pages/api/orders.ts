@@ -27,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { customer, items, shipping_address } = req.body || {};
+    const { customer, items, shipping_address, shipping_price, shipping_method } = req.body || {};
 
     if (!customer?.name || !customer?.email || !customer?.phone) {
       return res.status(400).json({ error: "Customer inválido" });
@@ -36,9 +36,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "Carrinho vazio" });
     }
 
-    // validação mínima do endereço (pode evoluir depois)
-    if (!shipping_address?.cep || !shipping_address?.street || !shipping_address?.number || !shipping_address?.district || !shipping_address?.city || !shipping_address?.state) {
-      return res.status(400).json({ error: "Endereço inválido (preencha CEP, rua, número, bairro, cidade e UF)" });
+    // validação mínima do endereço
+    if (
+      !shipping_address?.cep ||
+      !shipping_address?.street ||
+      !shipping_address?.number ||
+      !shipping_address?.district ||
+      !shipping_address?.city ||
+      !shipping_address?.state
+    ) {
+      return res
+        .status(400)
+        .json({ error: "Endereço inválido (preencha CEP, rua, número, bairro, cidade e UF)" });
     }
 
     const safeItems: Item[] = items.map((i: any) => ({
@@ -52,10 +61,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const itemsTotal = safeItems.reduce((acc, i) => acc + i.meters * i.price_per_meter, 0);
 
-    // Fase 1: frete a calcular (0). Depois você calcula e soma aqui.
-    const shipping_price = 0;
-    const total = itemsTotal + shipping_price;
+    const shippingPriceNum = Number(shipping_price || 0);
+    if (Number.isNaN(shippingPriceNum) || shippingPriceNum < 0) {
+      return res.status(400).json({ error: "shipping_price inválido" });
+    }
 
+    if (!shipping_method) {
+      return res.status(400).json({ error: "shipping_method ausente" });
+    }
+
+    const total = itemsTotal + shippingPriceNum;
+
+    // 1) cria pedido
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
@@ -66,8 +83,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         total_price: total,
 
         shipping_address,
-        shipping_price,
-        shipping_method: "to_be_defined",
+        shipping_price: shippingPriceNum,
+        shipping_method,
         shipping_status: "pending",
       })
       .select("id")
@@ -78,6 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: orderError.message });
     }
 
+    // 2) cria itens
     const orderId = order.id;
 
     const orderItemsPayload = safeItems.map((i) => ({
@@ -85,7 +103,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       product_id: isUuid(i.product_id) ? i.product_id : null,
       meters: i.meters,
       price_per_meter: i.price_per_meter,
-      // Se tiver colunas no banco, você pode salvar nome/slug aqui depois
     }));
 
     const { error: itemsError } = await supabase.from("order_items").insert(orderItemsPayload);
