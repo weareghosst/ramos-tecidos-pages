@@ -8,14 +8,13 @@ const supabase = createClient(
 
 type Item = {
   product_id?: string; // UUID (se existir)
-  id?: string | number; // pode vir "1" do carrinho
+  id?: string | number;
   slug?: string;
   name?: string;
   meters: number;
   price_per_meter: number;
 };
 
-// validação simples para UUID (evita mandar "1" como UUID)
 function isUuid(v: any) {
   if (typeof v !== "string") return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
@@ -28,13 +27,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { customer, items } = req.body || {};
+    const { customer, items, shipping_address } = req.body || {};
 
     if (!customer?.name || !customer?.email || !customer?.phone) {
       return res.status(400).json({ error: "Customer inválido" });
     }
     if (!Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: "Carrinho vazio" });
+    }
+
+    // validação mínima do endereço (pode evoluir depois)
+    if (!shipping_address?.cep || !shipping_address?.street || !shipping_address?.number || !shipping_address?.district || !shipping_address?.city || !shipping_address?.state) {
+      return res.status(400).json({ error: "Endereço inválido (preencha CEP, rua, número, bairro, cidade e UF)" });
     }
 
     const safeItems: Item[] = items.map((i: any) => ({
@@ -46,9 +50,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       price_per_meter: Number(i.price_per_meter || 0),
     }));
 
-    const total = safeItems.reduce((acc, i) => acc + i.meters * i.price_per_meter, 0);
+    const itemsTotal = safeItems.reduce((acc, i) => acc + i.meters * i.price_per_meter, 0);
 
-    // 1) cria pedido
+    // Fase 1: frete a calcular (0). Depois você calcula e soma aqui.
+    const shipping_price = 0;
+    const total = itemsTotal + shipping_price;
+
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
@@ -57,6 +64,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         email: customer.email,
         phone: customer.phone,
         total_price: total,
+
+        shipping_address,
+        shipping_price,
+        shipping_method: "to_be_defined",
+        shipping_status: "pending",
       })
       .select("id")
       .single();
@@ -68,19 +80,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const orderId = order.id;
 
-    // 2) cria itens do pedido
-    // IMPORTANTE:
-    // - order_items.product_id é UUID no banco
-    // - seu carrinho pode ter id numérico tipo "1"
-    // então só mandamos product_id se for UUID válido; caso contrário, null.
     const orderItemsPayload = safeItems.map((i) => ({
       order_id: orderId,
       product_id: isUuid(i.product_id) ? i.product_id : null,
       meters: i.meters,
       price_per_meter: i.price_per_meter,
-      // Se você tiver colunas extras, pode salvar aqui:
-      // product_name: i.name ?? null,
-      // product_slug: i.slug ?? null,
+      // Se tiver colunas no banco, você pode salvar nome/slug aqui depois
     }));
 
     const { error: itemsError } = await supabase.from("order_items").insert(orderItemsPayload);
