@@ -4,7 +4,7 @@ type Product = {
   id: string;
   name: string;
   price_per_meter: number;
-  image?: string;
+  image_url?: string; // 👈 mudar aqui
   slug: string;
 };
 
@@ -13,9 +13,9 @@ export default function ProductCard({ product }: { product: Product }) {
     <div className="card p-4 lift">
       {/* Imagem */}
       <div className="aspect-square w-full rounded-xl bg-slate-100 mb-4 flex items-center justify-center overflow-hidden">
-        {product.image ? (
+        {product.image_url ? (   // 👈 mudar aqui
           <img
-            src={product.image}
+            src={product.image_url}
             alt={product.name}
             className="h-full w-full object-cover"
           />

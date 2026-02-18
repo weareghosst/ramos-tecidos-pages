@@ -1,14 +1,31 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getProductBySlug } from "@/lib/products";
+import { supabase } from "@/lib/supabase";
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "GET") {
-    return res.status(405).json({ error: "Method not allowed" });
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  try {
+    const { slug } = req.query;
+
+    if (!slug || typeof slug !== "string") {
+      return res.status(400).json({ error: "Slug inválido" });
+    }
+
+    const { data, error } = await supabase
+      .from("products")
+      .select("*")
+      .eq("slug", slug)
+      .single();
+
+    if (error || !data) {
+      return res.status(404).json({ product: null });
+    }
+
+    return res.status(200).json({ product: data });
+
+  } catch (err) {
+    console.error("Erro ao buscar produto:", err);
+    return res.status(500).json({ error: "Erro interno" });
   }
-
-  const slug = String(req.query.slug || "");
-  const product = await getProductBySlug(slug);
-
-  if (!product) return res.status(404).json({ error: "Not found" });
-  return res.status(200).json({ product });
 }
