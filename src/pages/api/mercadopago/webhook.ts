@@ -10,27 +10,27 @@ const supabase = createClient(
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     console.log('🔔 Webhook called')
-    console.log('Method:', req.method)
-    console.log('Headers:', req.headers)
+    console.log('Body:', req.body)
 
-    // 🔎 Força leitura segura do body
     const body =
       typeof req.body === 'string'
         ? JSON.parse(req.body)
         : req.body
 
-    console.log('Body parsed:', body)
-
-    const paymentId = body?.data?.id
+    // 🔥 EXTRAÇÃO INTELIGENTE DO PAYMENT ID
+    let paymentId =
+      body?.data?.id ||
+      body?.id ||
+      body?.resource?.split('/')?.pop()
 
     if (!paymentId) {
-      console.log('❌ Payment ID not found')
+      console.log('❌ No payment ID found')
       return res.status(200).json({ received: true })
     }
 
     console.log('💳 Payment ID:', paymentId)
 
-    // Consulta pagamento REAL
+    // Consulta pagamento real
     const mpRes = await fetch(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
@@ -45,14 +45,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('📦 Mercado Pago status:', payment.status)
 
     if (payment.status !== 'approved') {
-      console.log('⏳ Not approved yet')
+      console.log('⏳ Payment not approved yet')
       return res.status(200).json({ received: true })
     }
 
     const orderId = payment.external_reference
 
     if (!orderId) {
-      console.log('❌ external_reference missing')
+      console.log('❌ No external_reference')
       return res.status(200).json({ received: true })
     }
 
@@ -68,8 +68,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('❌ Order not found:', error)
       return res.status(200).json({ received: true })
     }
-
-    console.log('📄 Order status:', order.status)
 
     if (order.status !== 'paid') {
       await supabase
@@ -93,7 +91,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .select('*')
       .eq('order_id', orderId)
 
-    console.log('📧 Sending email to:', order.email)
+    console.log('📧 Sending confirmation email')
 
     await sendOrderConfirmedEmail({
       orderId,
