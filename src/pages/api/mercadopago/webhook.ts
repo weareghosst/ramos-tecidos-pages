@@ -8,20 +8,29 @@ const supabase = createClient(
 )
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  console.log('🔔 Webhook received')
-  console.log('Body:', req.body)
-
   try {
-    const paymentId = req.body?.data?.id
+    console.log('🔔 Webhook called')
+    console.log('Method:', req.method)
+    console.log('Headers:', req.headers)
+
+    // 🔎 Força leitura segura do body
+    const body =
+      typeof req.body === 'string'
+        ? JSON.parse(req.body)
+        : req.body
+
+    console.log('Body parsed:', body)
+
+    const paymentId = body?.data?.id
 
     if (!paymentId) {
-      console.log('❌ No payment ID found')
-      return res.status(200).end()
+      console.log('❌ Payment ID not found')
+      return res.status(200).json({ received: true })
     }
 
     console.log('💳 Payment ID:', paymentId)
 
-    // Consulta pagamento REAL no Mercado Pago
+    // Consulta pagamento REAL
     const mpRes = await fetch(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
@@ -36,37 +45,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log('📦 Mercado Pago status:', payment.status)
 
     if (payment.status !== 'approved') {
-      console.log('⏳ Payment not approved yet')
-      return res.status(200).end()
+      console.log('⏳ Not approved yet')
+      return res.status(200).json({ received: true })
     }
 
     const orderId = payment.external_reference
 
     if (!orderId) {
-      console.log('❌ No external_reference found')
-      return res.status(200).end()
+      console.log('❌ external_reference missing')
+      return res.status(200).json({ received: true })
     }
 
     console.log('🧾 Order ID:', orderId)
 
-    // Busca pedido
-    const { data: order, error: orderError } = await supabase
+    const { data: order, error } = await supabase
       .from('orders')
       .select('*')
       .eq('id', orderId)
       .single()
 
-    if (orderError || !order) {
-      console.log('❌ Order not found:', orderError)
-      return res.status(200).end()
+    if (error || !order) {
+      console.log('❌ Order not found:', error)
+      return res.status(200).json({ received: true })
     }
 
-    console.log('📄 Order found. Current status:', order.status)
+    console.log('📄 Order status:', order.status)
 
-    // Atualiza status se necessário
     if (order.status !== 'paid') {
-      console.log('🔄 Updating order to paid')
-
       await supabase
         .from('orders')
         .update({
@@ -78,20 +83,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .eq('id', orderId)
     }
 
-    // 🔒 TRAVA DE E-MAIL
     if (order.email_sent) {
-      console.log('📧 Email already sent. Skipping.')
-      return res.status(200).end()
+      console.log('📧 Email already sent')
+      return res.status(200).json({ received: true })
     }
-
-    console.log('📦 Fetching order items')
 
     const { data: items } = await supabase
       .from('order_items')
       .select('*')
       .eq('order_id', orderId)
 
-    console.log('📧 Sending confirmation email to:', order.email)
+    console.log('📧 Sending email to:', order.email)
 
     await sendOrderConfirmedEmail({
       orderId,
@@ -103,8 +105,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       items: items || []
     })
 
-    console.log('✅ Email sent successfully')
-
     await supabase
       .from('orders')
       .update({
@@ -113,11 +113,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
       .eq('id', orderId)
 
-    console.log('🟢 Webhook finished successfully')
+    console.log('✅ Email sent successfully')
 
-    return res.status(200).end()
+    return res.status(200).json({ success: true })
   } catch (err) {
     console.error('🔥 Webhook error:', err)
-    return res.status(200).end()
+    return res.status(200).json({ error: true })
   }
 }
