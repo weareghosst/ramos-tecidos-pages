@@ -30,7 +30,7 @@ const MOCK: Product[] = [
   },
 ];
 
-// TODO: substitua por Supabase / seu backend real
+
 export async function listProducts(): Promise<Product[]> {
   return MOCK;
 }
