@@ -143,8 +143,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log('✅ Order updated to paid')
     }
 
-    if (order.email_sent) {
-      console.log('📧 Email already sent')
+    // trava real contra envio duplicado
+    const { data: emailLockRow, error: emailLockError } = await supabase
+      .from('orders')
+      .update({
+        email_sent: true,
+        email_sent_at: new Date().toISOString()
+      })
+      .eq('id', orderId)
+      .eq('email_sent', false)
+      .select('id')
+      .maybeSingle()
+
+    if (emailLockError) {
+      console.log('❌ Failed to acquire email lock:', emailLockError)
+      return res.status(200).json({ received: true })
+    }
+
+    if (!emailLockRow) {
+      console.log('📧 Email already sent or lock already acquired')
       return res.status(200).json({ received: true })
     }
 
@@ -169,19 +186,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       shippingPrice: order.shipping_price,
       items: items || []
     })
-
-    const { error: emailFlagError } = await supabase
-      .from('orders')
-      .update({
-        email_sent: true,
-        email_sent_at: new Date().toISOString()
-      })
-      .eq('id', orderId)
-
-    if (emailFlagError) {
-      console.log('❌ Failed to mark email as sent:', emailFlagError)
-      return res.status(200).json({ received: true })
-    }
 
     console.log('✅ Email sent successfully')
 

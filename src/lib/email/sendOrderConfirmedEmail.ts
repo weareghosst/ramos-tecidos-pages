@@ -2,10 +2,20 @@ import { Resend } from 'resend'
 
 const resend = new Resend(process.env.RESEND_API_KEY!)
 
-type OrderItem = {
-  product_name: string
-  quantity: number
-  price: number
+type RawOrderItem = {
+  product_name?: string
+  product?: { name?: string }
+  products?: { name?: string }
+  name?: string
+  title?: string
+  quantity?: number
+  qty?: number
+  meters?: number
+  price?: number
+  unit_price?: number
+  price_per_meter?: number
+  subtotal?: number
+  total_price?: number
 }
 
 type SendOrderEmailParams = {
@@ -15,7 +25,45 @@ type SendOrderEmailParams = {
   totalPrice: number
   shippingMethod: string
   shippingPrice: number
-  items: OrderItem[]
+  items: RawOrderItem[]
+}
+
+function formatCurrency(value: number) {
+  return `R$ ${Number(value || 0).toFixed(2)}`
+}
+
+function normalizeItem(item: RawOrderItem) {
+  const name =
+    item.product_name ||
+    item.product?.name ||
+    item.products?.name ||
+    item.name ||
+    item.title ||
+    'Produto'
+
+  const quantity =
+    item.quantity ??
+    item.qty ??
+    item.meters ??
+    1
+
+  let lineTotal = 0
+
+  if (typeof item.price === 'number') {
+    lineTotal = item.price > 1000 ? item.price / 100 : item.price
+  } else if (typeof item.subtotal === 'number') {
+    lineTotal = item.subtotal
+  } else if (typeof item.total_price === 'number') {
+    lineTotal = item.total_price
+  } else {
+    lineTotal = Number(quantity) * Number(item.price_per_meter || item.unit_price || 0)
+  }
+
+  return {
+    name,
+    quantity: Number(quantity),
+    lineTotal: Number(lineTotal),
+  }
 }
 
 export async function sendOrderConfirmedEmail({
@@ -27,13 +75,15 @@ export async function sendOrderConfirmedEmail({
   shippingPrice,
   items
 }: SendOrderEmailParams) {
-  const itemsHtml = items
+  const normalizedItems = (items || []).map(normalizeItem)
+
+  const itemsHtml = normalizedItems
     .map(
       item => `
         <tr>
-          <td>${item.product_name}</td>
+          <td>${item.name}</td>
           <td align="center">${item.quantity}</td>
-          <td align="right">R$ ${(item.price / 100).toFixed(2)}</td>
+          <td align="right">${formatCurrency(item.lineTotal)}</td>
         </tr>
       `
     )
@@ -61,13 +111,17 @@ export async function sendOrderConfirmedEmail({
             </tr>
           </thead>
           <tbody>
-            ${itemsHtml}
+            ${itemsHtml || `
+              <tr>
+                <td colspan="3" align="center">Itens não encontrados</td>
+              </tr>
+            `}
           </tbody>
         </table>
 
-        <p><strong>Frete:</strong> ${shippingMethod} – R$ ${(shippingPrice / 100).toFixed(2)}</p>
+        <p><strong>Frete:</strong> ${shippingMethod} – ${formatCurrency(Number(shippingPrice || 0))}</p>
 
-        <h3>Total pago: R$ ${(totalPrice / 100).toFixed(2)}</h3>
+        <h3>Total pago: ${formatCurrency(Number(totalPrice || 0))}</h3>
 
         <p>
           Em breve você receberá novas atualizações do seu pedido por e-mail,
