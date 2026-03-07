@@ -1,13 +1,19 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 
 function mustEnv(name: string) {
-  const v = process.env[name];
-  if (!v) throw new Error(`${name} is required`);
-  return v;
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`${name} is required`);
+  }
+  return value;
 }
 
 function optEnv(name: string) {
   return process.env[name] || "";
+}
+
+function normalizeBaseUrl(url: string) {
+  return url.replace(/\/$/, "");
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -18,14 +24,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const MP_ACCESS_TOKEN = mustEnv("MERCADOPAGO_ACCESS_TOKEN");
-    const BASE_URL = mustEnv("NEXT_PUBLIC_BASE_URL");
+    const BASE_URL = normalizeBaseUrl(mustEnv("NEXT_PUBLIC_BASE_URL"));
+
+    if (!BASE_URL.startsWith("https://")) {
+      return res.status(500).json({
+        error: "NEXT_PUBLIC_BASE_URL precisa começar com https://",
+        got: BASE_URL,
+      });
+    }
 
     const { orderId, amount, payer } = req.body || {};
 
-    if (!orderId) return res.status(400).json({ error: "orderId ausente" });
+    if (!orderId) {
+      return res.status(400).json({ error: "orderId ausente" });
+    }
 
-    // ✅ força valor de teste via ENV (ex: 0.30)
-    const FORCE_TEST_AMOUNT = optEnv("FORCE_TEST_AMOUNT"); // exemplo: "0.30"
+    const FORCE_TEST_AMOUNT = optEnv("FORCE_TEST_AMOUNT");
     const transaction_amount = FORCE_TEST_AMOUNT
       ? Number(FORCE_TEST_AMOUNT)
       : Number(amount);
@@ -38,13 +52,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    if (!payer?.email) return res.status(400).json({ error: "payer.email ausente" });
-    if (!payer?.first_name) return res.status(400).json({ error: "payer.first_name ausente" });
-    if (!payer?.last_name) return res.status(400).json({ error: "payer.last_name ausente" });
+    if (!payer?.email) {
+      return res.status(400).json({ error: "payer.email ausente" });
+    }
 
-    const notification_url = `${BASE_URL.replace(/\/$/, "")}/api/mercadopago/webhook`;
+    if (!payer?.first_name) {
+      return res.status(400).json({ error: "payer.first_name ausente" });
+    }
 
-    const body: any = {
+    if (!payer?.last_name) {
+      return res.status(400).json({ error: "payer.last_name ausente" });
+    }
+
+    const notification_url = `${BASE_URL}/api/mercadopago/webhook`;
+
+    const body = {
       transaction_amount: Math.round(transaction_amount * 100) / 100,
       description: `Pedido Ramos Tecidos ${orderId}`,
       payment_method_id: "pix",
@@ -57,6 +79,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       external_reference: orderId,
     };
 
+    console.log("💳 Creating PIX payment");
+    console.log("🌐 BASE_URL:", BASE_URL);
+    console.log("🔔 notification_url:", notification_url);
+    console.log("📦 Payload sent to Mercado Pago:", body);
+
     const mpRes = await fetch("https://api.mercadopago.com/v1/payments", {
       method: "POST",
       headers: {
@@ -68,12 +95,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     const text = await mpRes.text();
+
     let data: any = {};
     try {
       data = text ? JSON.parse(text) : {};
     } catch {
       data = { raw: text };
     }
+
+    console.log("📨 Mercado Pago response status:", mpRes.status);
+    console.log("📨 Mercado Pago response body:", data);
 
     if (!mpRes.ok) {
       return res.status(mpRes.status).json({
@@ -96,9 +127,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       qr_code: copiaECola,
       status: data?.status,
       forced_amount: FORCE_TEST_AMOUNT ? body.transaction_amount : null,
+      notification_url,
     });
   } catch (e: any) {
     console.error("create-pix API error:", e);
-    return res.status(500).json({ error: e?.message || "Internal error" });
+    return res.status(500).json({
+      error: e?.message || "Internal error",
+    });
   }
 }
