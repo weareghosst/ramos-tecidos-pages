@@ -16,7 +16,6 @@ export default function Checkout() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
 
-  // Endereço
   const [cep, setCep] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -25,7 +24,6 @@ export default function Checkout() {
   const [city, setCity] = useState("");
   const [stateUf, setStateUf] = useState("");
 
-  // Frete
   const [shippingLoading, setShippingLoading] = useState(false);
   const [shippingError, setShippingError] = useState<string | null>(null);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
@@ -70,10 +68,17 @@ export default function Checkout() {
   const items = useMemo(() => {
     if (typeof window === "undefined") return [];
     return JSON.parse(localStorage.getItem(cartKey) || "[]");
-  }, [orderId]); // muda quando cria pedido, mas ok
+  }, [orderId]);
 
   const itemsTotal = useMemo(() => calcItemsTotal(items), [items]);
-  const total = useMemo(() => itemsTotal + Number(shippingPrice || 0), [itemsTotal, shippingPrice]);
+  const total = useMemo(
+    () => itemsTotal + Number(shippingPrice || 0),
+    [itemsTotal, shippingPrice]
+  );
+
+  const selectedShippingOption = useMemo(() => {
+    return shippingOptions.find((o) => o.id === selectedShippingId) || null;
+  }, [shippingOptions, selectedShippingId]);
 
   async function quoteShipping(cepValue: string) {
     setShippingLoading(true);
@@ -123,7 +128,6 @@ export default function Checkout() {
       setSelectedShippingId("");
       setShippingPrice(0);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cep]);
 
   function onSelectShipping(id: string) {
@@ -134,6 +138,7 @@ export default function Checkout() {
 
   async function handleCheckout() {
     setLoading(true);
+
     try {
       const items = JSON.parse(localStorage.getItem(cartKey) || "[]");
 
@@ -147,12 +152,16 @@ export default function Checkout() {
         return;
       }
 
+      if (!selectedShippingOption) {
+        alert("Opção de frete inválida.");
+        return;
+      }
+
       if (!total || total <= 0) {
         alert("Total inválido. Verifique carrinho e frete.");
         return;
       }
 
-      // 1) cria pedido com endereço + frete
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -169,7 +178,8 @@ export default function Checkout() {
             state: stateUf,
           },
           shipping_price: shippingPrice,
-          shipping_method: selectedShippingId,
+          shipping_method: selectedShippingOption.label,
+          melhor_envio_service_id: selectedShippingOption.id,
         }),
       });
 
@@ -177,11 +187,12 @@ export default function Checkout() {
       if (!res.ok) throw new Error(data.error || "Erro ao criar pedido");
 
       const createdOrderId = data.orderId as string;
-      if (!createdOrderId) throw new Error("API /api/orders não retornou orderId");
+      if (!createdOrderId) {
+        throw new Error("API /api/orders não retornou orderId");
+      }
 
       setOrderId(createdOrderId);
 
-      // 2) gera Pix com total (itens + frete)
       const [first, ...rest] = name.trim().split(/\s+/);
       const payer = {
         email,
@@ -252,7 +263,6 @@ export default function Checkout() {
 
   return (
     <main className="min-h-screen bg-white text-slate-900">
-      {/* Topbar simples */}
       <header className="border-b border-slate-200 bg-white">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/" className="font-bold tracking-tight text-lg">
@@ -275,7 +285,6 @@ export default function Checkout() {
 
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
         <div className="grid lg:grid-cols-12 gap-6">
-          {/* Coluna esquerda */}
           <div className="lg:col-span-7">
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6">
               <h1 className="text-xl font-bold">Checkout</h1>
@@ -285,10 +294,11 @@ export default function Checkout() {
 
               {!orderId ? (
                 <div className="mt-6 grid gap-4">
-                  {/* Dados */}
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-slate-700">Nome completo</label>
+                      <label className="text-sm font-medium text-slate-700">
+                        Nome completo
+                      </label>
                       <input
                         className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                         placeholder="Seu nome"
@@ -298,7 +308,9 @@ export default function Checkout() {
                     </div>
 
                     <div>
-                      <label className="text-sm font-medium text-slate-700">E-mail</label>
+                      <label className="text-sm font-medium text-slate-700">
+                        E-mail
+                      </label>
                       <input
                         className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                         placeholder="seu@email.com"
@@ -309,7 +321,9 @@ export default function Checkout() {
                   </div>
 
                   <div>
-                    <label className="text-sm font-medium text-slate-700">WhatsApp</label>
+                    <label className="text-sm font-medium text-slate-700">
+                      WhatsApp
+                    </label>
                     <input
                       className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                       placeholder="(11) 99999-9999"
@@ -326,7 +340,9 @@ export default function Checkout() {
 
                     <div className="mt-4 grid sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-sm font-medium text-slate-700">CEP</label>
+                        <label className="text-sm font-medium text-slate-700">
+                          CEP
+                        </label>
                         <input
                           className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                           placeholder="00000000"
@@ -336,7 +352,9 @@ export default function Checkout() {
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium text-slate-700">UF</label>
+                        <label className="text-sm font-medium text-slate-700">
+                          UF
+                        </label>
                         <input
                           className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                           placeholder="SP"
@@ -346,7 +364,9 @@ export default function Checkout() {
                       </div>
 
                       <div className="sm:col-span-2">
-                        <label className="text-sm font-medium text-slate-700">Rua</label>
+                        <label className="text-sm font-medium text-slate-700">
+                          Rua
+                        </label>
                         <input
                           className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                           placeholder="Rua..."
@@ -356,7 +376,9 @@ export default function Checkout() {
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium text-slate-700">Número</label>
+                        <label className="text-sm font-medium text-slate-700">
+                          Número
+                        </label>
                         <input
                           className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                           placeholder="123"
@@ -366,7 +388,9 @@ export default function Checkout() {
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium text-slate-700">Complemento (opcional)</label>
+                        <label className="text-sm font-medium text-slate-700">
+                          Complemento (opcional)
+                        </label>
                         <input
                           className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                           placeholder="Apto, bloco..."
@@ -376,7 +400,9 @@ export default function Checkout() {
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium text-slate-700">Bairro</label>
+                        <label className="text-sm font-medium text-slate-700">
+                          Bairro
+                        </label>
                         <input
                           className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                           placeholder="Bairro..."
@@ -386,7 +412,9 @@ export default function Checkout() {
                       </div>
 
                       <div>
-                        <label className="text-sm font-medium text-slate-700">Cidade</label>
+                        <label className="text-sm font-medium text-slate-700">
+                          Cidade
+                        </label>
                         <input
                           className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-slate-900/20"
                           placeholder="Cidade..."
@@ -396,7 +424,6 @@ export default function Checkout() {
                       </div>
                     </div>
 
-                    {/* Frete */}
                     <div className="mt-4 bg-white border border-slate-200 rounded-2xl shadow-sm p-4">
                       <div className="flex items-center justify-between">
                         <p className="font-semibold">Frete</p>
@@ -477,7 +504,7 @@ export default function Checkout() {
                       <div className="flex items-center justify-between">
                         <h2 className="text-lg font-semibold">Aguardando pagamento…</h2>
                         <span className="text-xs font-semibold rounded-full bg-amber-100 text-amber-700 px-2.5 py-1">
-                          pending
+                          {status}
                         </span>
                       </div>
 
@@ -512,7 +539,6 @@ export default function Checkout() {
             </div>
           </div>
 
-          {/* Coluna direita: resumo */}
           <div className="lg:col-span-5">
             <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 lg:sticky lg:top-6">
               <h2 className="font-semibold">Resumo</h2>
@@ -531,7 +557,9 @@ export default function Checkout() {
 
                 <div className="flex justify-between">
                   <span className="text-slate-600">Método</span>
-                  <span className="font-medium">{selectedShippingId || "-"}</span>
+                  <span className="font-medium">
+                    {selectedShippingOption?.label || "-"}
+                  </span>
                 </div>
               </div>
 
