@@ -7,21 +7,50 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+function safeParseBody(body: NextApiRequest['body']) {
+  if (!body) return {}
+
+  if (typeof body === 'object') {
+    return body
+  }
+
+  if (typeof body === 'string') {
+    const trimmed = body.trim()
+
+    if (!trimmed) return {}
+
+    try {
+      return JSON.parse(trimmed)
+    } catch (error) {
+      console.error('❌ Failed to parse webhook body string:', error)
+      return {}
+    }
+  }
+
+  return {}
+}
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     console.log('🔔 Webhook called')
-    console.log('Body:', req.body)
+    console.log('Method:', req.method)
+    console.log('Headers:', req.headers)
 
-    const body =
-      typeof req.body === 'string'
-        ? JSON.parse(req.body)
-        : req.body
+    if (req.method !== 'POST') {
+      console.log('❌ Invalid method')
+      return res.status(405).json({ error: 'Method not allowed' })
+    }
 
-    // 🔥 EXTRAÇÃO INTELIGENTE DO PAYMENT ID
-    let paymentId =
+    const body = safeParseBody(req.body)
+
+    console.log('Body:', body)
+
+    const paymentId =
       body?.data?.id ||
       body?.id ||
-      body?.resource?.split('/')?.pop()
+      body?.resource?.split('/')?.pop() ||
+      req.query?.['data.id'] ||
+      req.query?.id
 
     if (!paymentId) {
       console.log('❌ No payment ID found')
@@ -30,7 +59,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log('💳 Payment ID:', paymentId)
 
-    // Consulta pagamento real
     const mpRes = await fetch(
       `https://api.mercadopago.com/v1/payments/${paymentId}`,
       {
@@ -39,6 +67,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
     )
+
+    if (!mpRes.ok) {
+      const errorText = await mpRes.text()
+      console.log('❌ Mercado Pago payment fetch failed:', mpRes.status, errorText)
+      return res.status(200).json({ received: true })
+    }
 
     const payment = await mpRes.json()
 
@@ -52,25 +86,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const orderId = payment.external_reference
 
     if (!orderId) {
-      console.log('❌ No external_reference')
+      console.log('❌ No external_reference found')
       return res.status(200).json({ received: true })
     }
 
     console.log('🧾 Order ID:', orderId)
 
-    const { data: order, error } = await supabase
+    const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('*')
       .eq('id', orderId)
       .single()
 
-    if (error || !order) {
-      console.log('❌ Order not found:', error)
+    if (orderError || !order) {
+      console.log('❌ Order not found:', orderError)
       return res.status(200).json({ received: true })
     }
 
+    console.log('📄 Order found. Current status:', order.status)
+
     if (order.status !== 'paid') {
-      await supabase
+      const { error: updateOrderError } = await supabase
         .from('orders')
         .update({
           status: 'paid',
@@ -79,6 +115,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           paid_at: new Date().toISOString()
         })
         .eq('id', orderId)
+
+      if (updateOrderError) {
+        console.log('❌ Failed to update order as paid:', updateOrderError)
+        return res.status(200).json({ received: true })
+      }
     }
 
     if (order.email_sent) {
@@ -86,12 +127,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(200).json({ received: true })
     }
 
-    const { data: items } = await supabase
+    const { data: items, error: itemsError } = await supabase
       .from('order_items')
       .select('*')
       .eq('order_id', orderId)
 
-    console.log('📧 Sending confirmation email')
+    if (itemsError) {
+      console.log('❌ Failed to fetch order items:', itemsError)
+      return res.status(200).json({ received: true })
+    }
+
+    console.log('📧 Sending confirmation email to:', order.email)
 
     await sendOrderConfirmedEmail({
       orderId,
@@ -103,13 +149,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       items: items || []
     })
 
-    await supabase
+    const { error: emailFlagError } = await supabase
       .from('orders')
       .update({
         email_sent: true,
         email_sent_at: new Date().toISOString()
       })
       .eq('id', orderId)
+
+    if (emailFlagError) {
+      console.log('❌ Failed to mark email as sent:', emailFlagError)
+      return res.status(200).json({ received: true })
+    }
 
     console.log('✅ Email sent successfully')
 
