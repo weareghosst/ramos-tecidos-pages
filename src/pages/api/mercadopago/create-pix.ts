@@ -2,9 +2,11 @@ import type { NextApiRequest, NextApiResponse } from "next";
 
 function mustEnv(name: string) {
   const value = process.env[name];
+
   if (!value) {
     throw new Error(`${name} is required`);
   }
+
   return value;
 }
 
@@ -13,7 +15,7 @@ function optEnv(name: string) {
 }
 
 function normalizeBaseUrl(url: string) {
-  return url.replace(/\/$/, "");
+  return url.trim().replace(/\r?\n|\r/g, "").replace(/\/$/, "");
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
