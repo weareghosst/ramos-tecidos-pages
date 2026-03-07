@@ -38,6 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (req.method !== 'POST') {
       console.log('❌ Invalid method')
+      res.setHeader('Allow', 'POST')
       return res.status(405).json({ error: 'Method not allowed' })
     }
 
@@ -68,15 +69,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     )
 
+    if (mpRes.status === 404) {
+      const notFoundText = await mpRes.text()
+
+      console.log('⚠️ Payment not found for current token/account')
+      console.log('ℹ️ This can happen with Mercado Pago webhook simulation or mismatched credentials')
+      console.log('Mercado Pago 404 body:', notFoundText)
+
+      return res.status(200).json({
+        received: true,
+        ignored: 'payment_not_found'
+      })
+    }
+
     if (!mpRes.ok) {
       const errorText = await mpRes.text()
       console.log('❌ Mercado Pago payment fetch failed:', mpRes.status, errorText)
-      return res.status(200).json({ received: true })
+
+      return res.status(200).json({
+        received: true,
+        ignored: 'payment_fetch_failed'
+      })
     }
 
     const payment = await mpRes.json()
 
     console.log('📦 Mercado Pago status:', payment.status)
+    console.log('🧾 Mercado Pago external_reference:', payment.external_reference)
 
     if (payment.status !== 'approved') {
       console.log('⏳ Payment not approved yet')
@@ -120,6 +139,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         console.log('❌ Failed to update order as paid:', updateOrderError)
         return res.status(200).json({ received: true })
       }
+
+      console.log('✅ Order updated to paid')
     }
 
     if (order.email_sent) {
