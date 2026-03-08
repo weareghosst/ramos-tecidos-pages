@@ -43,16 +43,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const normalizedItems = (items || []).map((item: any) => ({
       ...item,
-      product_name:
-        item.product_name ||
-        item.product?.name ||
-        "Produto",
-      quantity:
-        item.quantity ??
-        item.meters ??
-        0,
-      line_total:
-        Number(item.meters || 0) * Number(item.price_per_meter || 0),
+      product_name: item.product_name || item.product?.name || "Produto",
+      quantity: item.quantity ?? item.meters ?? 0,
+      line_total: Number(item.meters || 0) * Number(item.price_per_meter || 0),
     }));
 
     return res.status(200).json({
