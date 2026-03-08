@@ -40,7 +40,16 @@ export default function Home({ products }: HomeProps) {
             </div>
 
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              Ramos Tecidos
+              <div className="mb-4">
+              <Image
+                src="/logo-ramos.png"
+                alt="Ramos Tecidos"
+                width={160}
+                height={160}
+                priority
+                className="h-auto w-auto max-h-[90px]"
+              />
+            </div>
             </h1>
 
             <p className="mt-3 max-w-2xl text-slate-600">
