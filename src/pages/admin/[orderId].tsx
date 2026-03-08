@@ -1,156 +1,20 @@
 import { useRouter } from "next/router";
-import useSWR from "swr";
-import { useState } from "react";
-import OrderStatusBadge from "@/components/admin/OrderStatusBadge";
+import { useEffect } from "react";
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
-function money(value: number) {
-  return `R$ ${Number(value || 0).toFixed(2)}`;
-}
-
-function getItemName(item: any) {
-  return item.product_name || item.product?.name || item.products?.name || item.name || "Produto";
-}
-
-function getItemQuantity(item: any) {
-  return Number(item.quantity ?? item.qty ?? item.meters ?? 0);
-}
-
-function getItemTotal(item: any) {
-  return Number(item.meters || 0) * Number(item.price_per_meter || 0);
-}
-
-export default function AdminOrderPage() {
+export default function LegacyAdminOrderRedirect() {
   const router = useRouter();
   const { orderId } = router.query;
 
-  const { data, mutate } = useSWR(
-    orderId ? `/api/admin/order?orderId=${orderId}` : null,
-    fetcher
-  );
+  useEffect(() => {
+    if (!router.isReady) return;
+    if (!orderId || typeof orderId !== "string") return;
 
-  const [loading, setLoading] = useState(false);
-
-  if (!orderId) return null;
-  if (!data) return <div className="p-6">Carregando...</div>;
-  if (data.error) return <div className="p-6 text-red-600">{data.error}</div>;
-
-  const order = data.order;
-  const shippingAddress = order.shipping_address || {};
-
-  async function handleShip() {
-    if (!confirm("Confirmar geração de etiqueta e envio do pedido?")) return;
-
-    try {
-      setLoading(true);
-
-      const res = await fetch("/api/admin/ship-automated", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ orderId: order.id })
-      });
-
-      const result = await res.json();
-
-      if (!res.ok) {
-        alert(result.error || "Erro ao gerar etiqueta");
-        return;
-      }
-
-      await mutate();
-      router.reload();
-    } catch {
-      alert("Erro inesperado");
-    } finally {
-      setLoading(false);
-    }
-  }
+    router.replace(`/admin/pedidos/${orderId}`);
+  }, [router, orderId]);
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-semibold">
-        Pedido #{order.id}
-      </h1>
-
-      <div className="card p-6 space-y-2">
-        <h2 className="font-semibold text-lg">Cliente</h2>
-        <p>{order.customer_name}</p>
-        <p>{order.email}</p>
-        <p>{order.phone}</p>
-      </div>
-
-      <div className="card p-6 space-y-2">
-        <h2 className="font-semibold text-lg">Endereço</h2>
-        <p>{shippingAddress.street}, {shippingAddress.number}</p>
-        <p>{shippingAddress.district}</p>
-        <p>{shippingAddress.city} - {shippingAddress.state}</p>
-        <p>CEP: {shippingAddress.cep}</p>
-      </div>
-
-      <div className="card p-6">
-        <h2 className="font-semibold text-lg mb-4">Itens</h2>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="text-left p-3">Produto</th>
-                <th className="text-left p-3">Qtd</th>
-                <th className="text-left p-3">Preço</th>
-              </tr>
-            </thead>
-            <tbody>
-              {order.items?.length ? (
-                order.items.map((item: any, index: number) => (
-                  <tr key={item.id || index} className="border-t">
-                    <td className="p-3">{getItemName(item)}</td>
-                    <td className="p-3">{getItemQuantity(item)}</td>
-                    <td className="p-3">{money(getItemTotal(item))}</td>
-                  </tr>
-                ))
-              ) : (
-                <tr className="border-t">
-                  <td className="p-3" colSpan={3}>
-                    Nenhum item encontrado
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="card p-6 space-y-2">
-        <p>
-          <strong>Status:</strong>{" "}
-          <OrderStatusBadge status={order.status} />
-        </p>
-
-        <p>
-          <strong>Total:</strong> {money(Number(order.total_price || 0))}
-        </p>
-
-        <p>
-          <strong>Frete:</strong> {money(Number(order.shipping_price || 0))}
-        </p>
-      </div>
-
-      {order.status === "paid" && (
-        <div className="card p-6 bg-green-50 border border-green-200">
-          <button
-            onClick={handleShip}
-            disabled={loading}
-            className={`btn-primary press ${
-              loading ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-          >
-            {loading ? "Gerando etiqueta..." : "🚀 Gerar etiqueta e enviar pedido"}
-          </button>
-        </div>
-      )}
+    <div className="p-6">
+      Redirecionando para o pedido...
     </div>
   );
 }
