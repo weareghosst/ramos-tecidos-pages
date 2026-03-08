@@ -1,74 +1,109 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/router";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+type Order = {
+  id: string;
+  customer_name: string;
+  status: string;
+  total_price: number;
+  shipping_price?: number;
+  shipping_method?: string;
+  created_at?: string;
+};
+
+function money(v: number) {
+  return `R$ ${Number(v || 0).toFixed(2)}`;
+}
 
 export default function AdminOrders() {
-  const router = useRouter();
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 🔒 BLOQUEIO ADMIN
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        router.replace("/admin/login");
+  async function loadOrders() {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const res = await fetch("/api/admin/orders");
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao carregar pedidos");
       }
-    });
-  }, [router]);
 
-  // 📦 Buscar pedidos
+      setOrders(Array.isArray(data?.orders) ? data.orders : []);
+    } catch (err: any) {
+      console.error(err);
+      setError(err?.message || "Erro ao carregar pedidos");
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    fetch("/api/admin/orders")
-      .then((r) => r.json())
-      .then((data) => {
-        setOrders(data || []);
-        setLoading(false);
-      });
+    loadOrders();
   }, []);
 
   if (loading) {
-    return <p className="p-8">Carregando pedidos...</p>;
+    return <div style={{ padding: 40 }}>Carregando pedidos...</div>;
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: 40 }}>
+        <h2>Erro</h2>
+        <p>{error}</p>
+      </div>
+    );
   }
 
   return (
-    <main className="p-8 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold mb-6">Pedidos</h1>
+    <main style={{ padding: 40 }}>
+      <h1 style={{ fontSize: 28, marginBottom: 30 }}>Pedidos</h1>
 
-      <table className="w-full border">
+      <table
+        style={{
+          width: "100%",
+          borderCollapse: "collapse",
+        }}
+      >
         <thead>
-          <tr className="bg-gray-100">
-            <th className="text-left p-2">Pedido</th>
-            <th className="text-left p-2">Cliente</th>
-            <th className="text-left p-2">Status</th>
-            <th className="text-right p-2">Total</th>
-            <th className="p-2"></th>
+          <tr style={{ background: "#f3f3f3" }}>
+            <th style={{ textAlign: "left", padding: 10 }}>Pedido</th>
+            <th style={{ textAlign: "left", padding: 10 }}>Cliente</th>
+            <th style={{ textAlign: "left", padding: 10 }}>Status</th>
+            <th style={{ textAlign: "right", padding: 10 }}>Total</th>
+            <th style={{ padding: 10 }}></th>
           </tr>
         </thead>
+
         <tbody>
-          {orders.map((o) => (
-            <tr key={o.id} className="border-t">
-              <td className="p-2">{o.id}</td>
-              <td className="p-2">{o.customer_name}</td>
-              <td className="p-2">{o.status}</td>
-              <td className="p-2 text-right">
-                R$ {(o.total_price / 100).toFixed(2)}
-              </td>
-              <td className="p-2 text-center">
-                <Link
-                  href={`/admin/${o.id}`}
-                  className="text-blue-600 underline"
-                >
-                  Ver
-                </Link>
+          {orders.length > 0 ? (
+            orders.map((o) => (
+              <tr key={o.id} style={{ borderTop: "1px solid #ddd" }}>
+                <td style={{ padding: 10 }}>{o.id}</td>
+                <td style={{ padding: 10 }}>{o.customer_name}</td>
+                <td style={{ padding: 10 }}>{o.status}</td>
+                <td style={{ padding: 10, textAlign: "right" }}>
+                  {money(o.total_price)}
+                </td>
+
+                <td style={{ padding: 10 }}>
+                  <Link href={`/admin/pedidos/${o.id}`}>
+                    Ver
+                  </Link>
+                </td>
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td colSpan={5} style={{ padding: 20, textAlign: "center" }}>
+                Nenhum pedido encontrado
               </td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
     </main>
