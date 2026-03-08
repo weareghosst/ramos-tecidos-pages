@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import Head from "next/head";
 import ProductCard, {
   type ProductCardProduct,
 } from "../components/ProductCard";
@@ -13,12 +14,20 @@ type HomeProps = {
 export default function Home({ products }: HomeProps) {
   return (
     <>
+      <Head>
+        <title>Ramos Tecidos | A melhor loja de tecidos variados</title>
+
+        <meta
+          name="description"
+          content="A melhor loja de tecidos variados. Compre tecidos por metro com pagamento rápido via Pix."
+        />
+      </Head>
+
       <SpeedInsights />
 
       <section className="card p-6 sm:p-8">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            {/* LOGO */}
             <div className="mb-4">
               <Image
                 src="/logo-ramos.png"
