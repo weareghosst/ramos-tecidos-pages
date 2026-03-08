@@ -8,7 +8,7 @@ function asNumber(v: any, fallback = 0) {
 
 function pickShippingServiceId(order: any) {
   return (
-    order?.melhor_envio_service_id ??
+    order?.shipping_address?.service_id ??
     order?.shipping_service_id ??
     order?.service_id ??
     null
@@ -66,7 +66,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!serviceId) {
       return res.status(400).json({
         error:
-          "Pedido sem service_id do Melhor Envio. Salve o serviço escolhido no checkout (ex: melhor_envio_service_id).",
+          "Pedido sem service_id do Melhor Envio. Salve o serviço escolhido no checkout.",
       });
     }
 
@@ -139,7 +139,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
       body: JSON.stringify({
         service: serviceId,
-        agency: order.melhor_envio_agency_id ?? undefined,
         from,
         to,
         products,

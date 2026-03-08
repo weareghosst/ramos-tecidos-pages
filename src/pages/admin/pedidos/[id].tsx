@@ -20,23 +20,11 @@ function getItemName(item: any) {
 }
 
 function getItemQuantity(item: any) {
-  return Number(
-    item.quantity ??
-    item.qty ??
-    item.meters ??
-    0
-  );
+  return Number(item.quantity ?? item.qty ?? item.meters ?? 0);
 }
 
 function getItemTotal(item: any) {
-  if (typeof item.price === "number") {
-    return item.price > 1000 ? item.price / 100 : item.price;
-  }
-
-  const meters = Number(item.meters || item.quantity || 0);
-  const ppm = Number(item.price_per_meter || item.unit_price || 0);
-
-  return meters * ppm;
+  return Number(item.meters || 0) * Number(item.price_per_meter || 0);
 }
 
 export default function AdminPedidoDetalhe() {
@@ -52,6 +40,7 @@ export default function AdminPedidoDetalhe() {
 
   if (!id) return null;
   if (!data) return <div className="p-6">Carregando...</div>;
+  if (data.error) return <div className="p-6 text-red-600">{data.error}</div>;
 
   const order = data.order;
   const shippingAddress = order.shipping_address || {};
@@ -79,7 +68,7 @@ export default function AdminPedidoDetalhe() {
 
       await mutate();
       router.reload();
-    } catch (err) {
+    } catch {
       alert("Erro inesperado");
     } finally {
       setLoading(false);
@@ -147,11 +136,15 @@ export default function AdminPedidoDetalhe() {
         </p>
 
         <p>
-          <strong>Total:</strong> {money(Number(order.total_price || order.total || 0))}
+          <strong>Total:</strong> {money(Number(order.total_price || 0))}
         </p>
 
         <p>
-          <strong>Frete:</strong> {money(Number(order.shipping_price || order.shipping_cost || 0))}
+          <strong>Frete:</strong> {money(Number(order.shipping_price || 0))}
+        </p>
+
+        <p>
+          <strong>Método:</strong> {order.shipping_method || "-"}
         </p>
       </div>
 
