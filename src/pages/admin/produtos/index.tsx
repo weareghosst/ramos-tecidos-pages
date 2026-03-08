@@ -44,7 +44,7 @@ export default function AdminOrders() {
         setLoading(true);
         setError(null);
 
-        const res = await fetch("/api/admin/orders");
+        const res = await fetch("/api/admin/products");
         const data = await res.json();
 
         if (!res.ok) {
