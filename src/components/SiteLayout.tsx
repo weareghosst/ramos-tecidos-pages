@@ -12,12 +12,17 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
             <Image
               src="/logo-ramos.png"
               alt="Ramos Tecidos"
-              width={140}
-              height={40}
+              width={1000}
+              height={300}
               priority
-              className="h-auto w-auto max-h-[40px]"
+              className="h-auto w-auto max-h-[100px]"
             />
           </Link>
+
+  
+            <Link href="/produtos" className="hover:text-slate-700">
+              Ramos Tecidos
+            </Link>
 
           <nav className="flex items-center gap-4 text-sm font-medium">
             <Link href="/produtos" className="hover:text-slate-700">
