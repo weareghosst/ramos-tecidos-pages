@@ -20,9 +20,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
           </Link>
 
   
-            <Link href="/produtos" className="hover:text-slate-700">
-              Ramos Tecidos
-            </Link>
+           
 
           <nav className="flex items-center gap-4 text-sm font-medium">
             <Link href="/produtos" className="hover:text-slate-700">
