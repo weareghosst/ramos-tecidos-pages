@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import ProductCard, {
   type ProductCardProduct,
@@ -17,6 +18,18 @@ export default function Home({ products }: HomeProps) {
       <section className="card p-6 sm:p-8">
         <div className="flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
           <div>
+            {/* LOGO */}
+            <div className="mb-4">
+              <Image
+                src="/logo-ramos.png"
+                alt="Ramos Tecidos"
+                width={160}
+                height={160}
+                priority
+                className="h-auto w-auto max-h-[90px]"
+              />
+            </div>
+
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
               Ramos Tecidos
             </h1>
