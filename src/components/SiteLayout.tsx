@@ -15,7 +15,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
               width={1000}
               height={300}
               priority
-              className="h-auto w-auto max-h-[100px]"
+              className="h-auto w-auto max-h-[75px]"
             />
           </Link>
 
