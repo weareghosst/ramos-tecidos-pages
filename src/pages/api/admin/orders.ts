@@ -82,26 +82,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const total = itemsTotal + shippingPriceNum;
 
-    const orderInsertPayload: Record<string, any> = {
-      status: "pending",
-      customer_name: customer.name,
-      email: customer.email,
-      phone: customer.phone,
-      total_price: total,
-
-      shipping_address,
-      shipping_price: shippingPriceNum,
-      shipping_method,
-      shipping_status: "pending",
+    const normalizedShippingAddress = {
+      ...shipping_address,
+      service_id: melhor_envio_service_id ? String(melhor_envio_service_id) : null,
     };
-
-    if (melhor_envio_service_id) {
-      orderInsertPayload.melhor_envio_service_id = String(melhor_envio_service_id);
-    }
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
-      .insert(orderInsertPayload)
+      .insert({
+        status: "pending",
+        customer_name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        total_price: total,
+        shipping_address: normalizedShippingAddress,
+        shipping_price: shippingPriceNum,
+        shipping_method,
+        shipping_status: "pending",
+      })
       .select("id")
       .single();
 
