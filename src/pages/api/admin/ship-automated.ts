@@ -16,8 +16,6 @@ function pickShippingServiceId(order: any) {
 }
 
 function getBaseUrl() {
-  // Se você usa sandbox por enquanto:
-  // MELHOR_ENVIO_SANDBOX=true -> sandbox
   const isSandbox =
     String(process.env.MELHOR_ENVIO_SANDBOX || "true").toLowerCase() === "true";
 
@@ -48,6 +46,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ error: "Pedido não encontrado" });
     }
 
+    const { data: items, error: itemsErr } = await supabase
+      .from("order_items")
+      .select(`
+        *,
+        product:products (
+          id,
+          name,
+          slug
+        )
+      `)
+      .eq("order_id", orderId);
+
+    if (itemsErr) {
+      return res.status(500).json({ error: "Erro ao buscar itens do pedido" });
+    }
+
     const serviceId = pickShippingServiceId(order);
     if (!serviceId) {
       return res.status(400).json({
@@ -61,20 +75,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ error: "MELHOR_ENVIO_TOKEN não configurado" });
     }
 
-    // Dados do destinatário (ajuste os nomes conforme seu schema real)
+    const shippingAddress = order.shipping_address || {};
+
     const to = {
-      name: order.customer_name ?? order.name ?? "Cliente",
-      phone: order.phone ?? order.customer_phone ?? "",
+      name: order.customer_name ?? "Cliente",
+      phone: order.phone ?? "",
       email: order.email ?? "",
-      address: order.address ?? order.street ?? "",
-      number: order.number ?? order.address_number ?? "",
-      district: order.district ?? order.neighborhood ?? "",
-      city: order.city ?? "",
-      state_abbr: order.state ?? order.uf ?? "",
-      postal_code: (order.cep ?? order.postal_code ?? "").replace(/\D/g, ""),
+      address: shippingAddress.street ?? "",
+      number: shippingAddress.number ?? "",
+      district: shippingAddress.district ?? "",
+      city: shippingAddress.city ?? "",
+      state_abbr: shippingAddress.state ?? "",
+      postal_code: String(shippingAddress.cep || "").replace(/\D/g, ""),
+      complement: shippingAddress.complement ?? "",
     };
 
-    // Origem (loja) — coloque seus dados reais (sandbox aceita, mas produção precisa estar ok)
     const from = {
       name: process.env.ME_FROM_NAME || "Ramos Tecidos",
       phone: process.env.ME_FROM_PHONE || "11999999999",
@@ -87,10 +102,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       district: process.env.ME_FROM_DISTRICT || "Centro",
       city: process.env.ME_FROM_CITY || "São Paulo",
       state_abbr: process.env.ME_FROM_STATE || "SP",
-      postal_code: (process.env.ME_FROM_CEP || "00000000").replace(/\D/g, ""),
+      postal_code: String(process.env.ME_FROM_CEP || "00000000").replace(/\D/g, ""),
     };
 
-    // Pacote mínimo (coloque dimensões reais depois)
     const pkg = {
       weight: asNumber(order.package_weight, 0.3),
       width: asNumber(order.package_width, 11),
@@ -98,24 +112,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       length: asNumber(order.package_length, 16),
     };
 
-    const insuranceValue = asNumber(order.total, 0);
+    const insuranceValue = asNumber(order.total_price, 0);
 
-    // Produto genérico (se quiser, depois a gente manda os itens reais)
-    const products = [
-      {
-        name: `Pedido ${order.id}`,
-        quantity: 1,
-        unitary_value: insuranceValue,
-        weight: pkg.weight,
-        width: pkg.width,
-        height: pkg.height,
-        length: pkg.length,
-      },
-    ];
+    const products = (items || []).map((item: any, index: number) => ({
+      name:
+        item.product_name ||
+        item.product?.name ||
+        `Pedido ${order.id} - Item ${index + 1}`,
+      quantity: 1,
+      unitary_value: asNumber(item.meters, 0) * asNumber(item.price_per_meter, 0),
+      weight: pkg.weight,
+      width: pkg.width,
+      height: pkg.height,
+      length: pkg.length,
+    }));
 
     const baseUrl = getBaseUrl();
 
-    // 1) CRIAR CARRINHO
     const cartResp = await fetch(`${baseUrl}/v2/me/cart`, {
       method: "POST",
       headers: {
@@ -126,7 +139,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
       body: JSON.stringify({
         service: serviceId,
-        agency: order.melhor_envio_agency_id ?? undefined, // opcional
+        agency: order.melhor_envio_agency_id ?? undefined,
         from,
         to,
         products,
@@ -166,7 +179,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // 2) CHECKOUT (GERAR ETIQUETA)
     const checkoutResp = await fetch(`${baseUrl}/v2/me/shipment/checkout`, {
       method: "POST",
       headers: {
@@ -194,7 +206,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // Atualiza pedido como shipped + salva ids do Melhor Envio para rastrear
     await supabase
       .from("orders")
       .update({
