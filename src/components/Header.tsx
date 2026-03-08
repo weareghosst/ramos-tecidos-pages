@@ -36,8 +36,15 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="container-page flex items-center justify-between h-16">
-        <Link href="/" className="text-sm font-bold tracking-widest text-slate-900">
-          RAMOS TECIDOS
+        <Link href="/" className="flex items-center gap-3">
+          <img
+            src="/logo.png"
+            alt="Ramos Tecidos"
+            className="h-9 w-auto object-contain"
+          />
+          <span className="text-sm font-bold tracking-widest text-slate-900">
+            RAMOS TECIDOS
+          </span>
         </Link>
 
         <nav className="flex items-center gap-2 text-sm font-medium text-slate-700">
@@ -58,10 +65,7 @@ export default function Header() {
             </span>
           </Link>
 
-          <Link
-            href="/checkout"
-            className="btn-primary px-3 py-1.5 text-sm"
-          >
+          <Link href="/checkout" className="btn-primary px-3 py-1.5 text-sm">
             Finalizar
           </Link>
         </nav>
