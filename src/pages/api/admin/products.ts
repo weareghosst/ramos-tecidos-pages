@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
-import { ProductVariant } from "../../../../types/catalog";
+import { ProductVariant } from "../../../types/catalog";
 
 function slugify(value: string) {
   return value
@@ -22,8 +22,6 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const id = String(req.query.id || "");
-
   const supabase = createClient(
     process.env.SUPABASE_URL as string,
     process.env.SUPABASE_SERVICE_ROLE_KEY as string
@@ -44,17 +42,14 @@ export default async function handler(
         created_at,
         variants:product_variants(
           id,
-          product_id,
           color_name,
           color_hex,
           image_url,
           stock_meters,
-          active,
-          created_at
+          active
         )
       `)
-      .eq("id", id)
-      .single();
+      .order("created_at", { ascending: false });
 
     if (error) {
       return res.status(500).json({ error: error.message });
@@ -63,7 +58,7 @@ export default async function handler(
     return res.status(200).json(data);
   }
 
-  if (req.method === "PUT") {
+  if (req.method === "POST") {
     try {
       const {
         name,
@@ -76,12 +71,16 @@ export default async function handler(
       } = req.body as {
         name: string;
         slug: string;
-        description: string | null;
+        description: string;
         price_per_meter: number;
         image_url: string | null;
         active: boolean;
         variants: ProductVariant[];
       };
+
+      if (!name?.trim()) {
+        return res.status(400).json({ error: "Nome do produto é obrigatório" });
+      }
 
       const cleanVariants = Array.isArray(variants)
         ? variants.filter((v) => v?.color_name?.trim())
@@ -91,55 +90,31 @@ export default async function handler(
         return sum + toSafeNumber(variant.stock_meters);
       }, 0);
 
-      const { error: productError } = await supabase
+      const safePricePerMeter = toSafeNumber(price_per_meter);
+
+      const { data: product, error: productError } = await supabase
         .from("products")
-        .update({
-          name: name?.trim() || "",
-          slug: slugify(slug || name || ""),
+        .insert({
+          name: name.trim(),
+          slug: slugify(slug || name),
           description: description || null,
-          price_per_meter: toSafeNumber(price_per_meter),
+          price_per_meter: safePricePerMeter,
           stock_meters: stockTotal,
           image_url: image_url || null,
           active: typeof active === "boolean" ? active : true,
         })
-        .eq("id", id);
-
-      if (productError) {
-        return res.status(500).json({ error: productError.message });
-      }
-
-      const { data: existingVariants, error: existingVariantsError } = await supabase
-        .from("product_variants")
         .select("id")
-        .eq("product_id", id);
+        .single();
 
-      if (existingVariantsError) {
-        return res.status(500).json({ error: existingVariantsError.message });
-      }
-
-      const incomingIds = cleanVariants
-        .map((variant) => variant.id)
-        .filter(Boolean) as string[];
-
-      const idsToDelete = (existingVariants || [])
-        .map((variant) => variant.id)
-        .filter((variantId) => !incomingIds.includes(variantId));
-
-      if (idsToDelete.length > 0) {
-        const { error: deleteError } = await supabase
-          .from("product_variants")
-          .delete()
-          .in("id", idsToDelete);
-
-        if (deleteError) {
-          return res.status(500).json({ error: deleteError.message });
-        }
+      if (productError || !product) {
+        return res.status(500).json({
+          error: productError?.message || "Erro ao criar produto",
+        });
       }
 
       if (cleanVariants.length > 0) {
-        const upsertPayload = cleanVariants.map((variant) => ({
-          id: variant.id,
-          product_id: id,
+        const variantsPayload = cleanVariants.map((variant) => ({
+          product_id: product.id,
           color_name: variant.color_name.trim(),
           color_hex: variant.color_hex || null,
           image_url: variant.image_url || null,
@@ -147,21 +122,28 @@ export default async function handler(
           active: typeof variant.active === "boolean" ? variant.active : true,
         }));
 
-        const { error: upsertError } = await supabase
+        const { error: variantsError } = await supabase
           .from("product_variants")
-          .upsert(upsertPayload);
+          .insert(variantsPayload);
 
-        if (upsertError) {
-          return res.status(500).json({ error: upsertError.message });
+        if (variantsError) {
+          await supabase.from("products").delete().eq("id", product.id);
+
+          return res.status(500).json({
+            error: variantsError.message,
+          });
         }
       }
 
-      return res.status(200).json({ success: true });
+      return res.status(201).json({
+        success: true,
+        id: product.id,
+      });
     } catch (error: any) {
-      console.error("PUT /api/admin/products/[id] error:", error);
+      console.error("POST /api/admin/products error:", error);
 
       return res.status(500).json({
-        error: error?.message || "Erro interno ao atualizar produto",
+        error: error?.message || "Erro interno ao criar produto",
       });
     }
   }

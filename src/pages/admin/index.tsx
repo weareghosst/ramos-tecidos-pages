@@ -1,6 +1,19 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 
+type OrderItem = {
+  id: string;
+  product_id: string;
+  variant_id?: string | null;
+  color_name?: string | null;
+  meters: number;
+  price_per_meter: number;
+  price: number;
+  product?: {
+    name?: string;
+  } | null;
+};
+
 type Order = {
   id: string;
   customer_name: string;
@@ -9,10 +22,22 @@ type Order = {
   shipping_price?: number;
   shipping_method?: string;
   created_at?: string;
+  items?: OrderItem[];
 };
 
 function money(v: number) {
   return `R$ ${Number(v || 0).toFixed(2)}`;
+}
+
+function formatDate(value?: string) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+
+  return date.toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 }
 
 export default function AdminOrders() {
@@ -47,65 +72,120 @@ export default function AdminOrders() {
   }, []);
 
   if (loading) {
-    return <div style={{ padding: 40 }}>Carregando pedidos...</div>;
+    return <div className="card p-6">Carregando pedidos...</div>;
   }
 
   if (error) {
     return (
-      <div style={{ padding: 40 }}>
-        <h2>Erro</h2>
-        <p>{error}</p>
+      <div className="card p-6">
+        <h2 className="text-xl font-semibold">Erro</h2>
+        <p className="mt-2 text-red-600">{error}</p>
       </div>
     );
   }
 
   return (
-    <main style={{ padding: 40 }}>
-      <h1 style={{ fontSize: 28, marginBottom: 30 }}>Pedidos</h1>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
+          <p className="mt-2 text-slate-600">
+            Acompanhe os pedidos realizados na loja.
+          </p>
+        </div>
 
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-        }}
-      >
-        <thead>
-          <tr style={{ background: "#f3f3f3" }}>
-            <th style={{ textAlign: "left", padding: 10 }}>Pedido</th>
-            <th style={{ textAlign: "left", padding: 10 }}>Cliente</th>
-            <th style={{ textAlign: "left", padding: 10 }}>Status</th>
-            <th style={{ textAlign: "right", padding: 10 }}>Total</th>
-            <th style={{ padding: 10 }}></th>
-          </tr>
-        </thead>
+        <Link href="/admin/produtos" className="btn-outline px-4 py-2 rounded-lg">
+          Gerenciar produtos
+        </Link>
+      </div>
 
-        <tbody>
-          {orders.length > 0 ? (
-            orders.map((o) => (
-              <tr key={o.id} style={{ borderTop: "1px solid #ddd" }}>
-                <td style={{ padding: 10 }}>{o.id}</td>
-                <td style={{ padding: 10 }}>{o.customer_name}</td>
-                <td style={{ padding: 10 }}>{o.status}</td>
-                <td style={{ padding: 10, textAlign: "right" }}>
-                  {money(o.total_price)}
-                </td>
+      {orders.length > 0 ? (
+        <div className="space-y-4">
+          {orders.map((o) => (
+            <div key={o.id} className="card p-5">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-sm text-slate-500">Pedido</p>
+                  <p className="font-semibold text-slate-900">{o.id}</p>
 
-                <td style={{ padding: 10 }}>
-                  <Link href={`/admin/pedidos/${o.id}`}>
-                    Ver
-                  </Link>
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan={5} style={{ padding: 20, textAlign: "center" }}>
-                Nenhum pedido encontrado
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </main>
+                  <p className="mt-3 text-sm text-slate-500">Cliente</p>
+                  <p className="font-medium text-slate-900">{o.customer_name}</p>
+                </div>
+
+                <div className="grid gap-2 text-sm md:text-right">
+                  <div>
+                    <span className="text-slate-500">Status: </span>
+                    <strong>{o.status}</strong>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500">Total: </span>
+                    <strong>{money(o.total_price)}</strong>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500">Frete: </span>
+                    <strong>{money(o.shipping_price || 0)}</strong>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500">Método: </span>
+                    <strong>{o.shipping_method || "-"}</strong>
+                  </div>
+
+                  <div>
+                    <span className="text-slate-500">Criado em: </span>
+                    <strong>{formatDate(o.created_at)}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 border-t border-slate-200 pt-4">
+                <p className="text-sm font-semibold text-slate-900">Itens</p>
+
+                {o.items && o.items.length > 0 ? (
+                  <div className="mt-3 space-y-3">
+                    {o.items.map((item) => (
+                      <div
+                        key={item.id}
+                        className="rounded-xl border border-slate-200 p-3"
+                      >
+                        <p className="font-medium text-slate-900">
+                          {item.product?.name || "Produto"}
+                        </p>
+
+                        {item.color_name ? (
+                          <p className="mt-1 text-sm text-slate-600">
+                            Cor: <strong>{item.color_name}</strong>
+                          </p>
+                        ) : null}
+
+                        <p className="mt-1 text-sm text-slate-600">
+                          Metragem: {Number(item.meters).toFixed(1)} m
+                        </p>
+
+                        <p className="mt-1 text-sm text-slate-600">
+                          Preço por metro: {money(item.price_per_meter)}
+                        </p>
+
+                        <p className="mt-1 text-sm text-slate-600">
+                          Subtotal do item: {money(item.price)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-slate-500">
+                    Nenhum item encontrado para este pedido.
+                  </p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="card p-6 text-slate-600">Nenhum pedido encontrado</div>
+      )}
+    </div>
   );
 }

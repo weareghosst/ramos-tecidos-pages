@@ -1,151 +1,57 @@
-import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { GetServerSideProps } from "next";
+import { createClient } from "@supabase/supabase-js";
+import ProductForm from "../../../components/admin/ProductForm";
+import { Product } from "../../../types/catalog";
 
-export default function EditarProduto() {
-  const router = useRouter();
-  const { id } = router.query;
+type Props = {
+  product: Product | null;
+};
 
-  const [form, setForm] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!id) return;
-
-    fetch(`/api/admin/products/${id}`)
-      .then((res) => res.json())
-      .then((data) => setForm(data.product));
-  }, [id]);
-
-  function handleChange(e: any) {
-    const { name, value, type, checked } = e.target;
-
-    setForm((prev: any) => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value,
-    }));
+export default function EditProductPage({ product }: Props) {
+  if (!product) {
+    return <div className="card p-6">Produto não encontrado.</div>;
   }
 
-  async function handleSubmit(e: any) {
-    e.preventDefault();
-    setLoading(true);
-
-    await fetch(`/api/admin/products/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...form,
-        price_per_meter: Number(form.price_per_meter),
-        stock_meters: Number(form.stock_meters),
-      }),
-    });
-
-    setLoading(false);
-    router.push("/admin/produtos");
-  }
-
-  async function handleDelete() {
-    if (!confirm("Deseja excluir este produto?")) return;
-
-    await fetch(`/api/admin/products/${id}`, {
-      method: "DELETE",
-    });
-
-    router.push("/admin/produtos");
-  }
-
-  if (!form) return <div className="p-8">Carregando...</div>;
-
-  return (
-    <div className="p-8 max-w-3xl">
-      <h1 className="text-2xl font-bold mb-6">Editar Produto</h1>
-
-      <form onSubmit={handleSubmit} className="card p-6 space-y-4">
-
-        <div>
-          <label className="block text-sm mb-1">Nome</label>
-          <input
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            className="input w-full"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm mb-1">Slug</label>
-          <input
-            name="slug"
-            value={form.slug}
-            onChange={handleChange}
-            className="input w-full"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm mb-1">Descrição</label>
-          <textarea
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-            className="input w-full"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm mb-1">Preço por metro</label>
-            <input
-              name="price_per_meter"
-              type="number"
-              step="0.01"
-              value={form.price_per_meter}
-              onChange={handleChange}
-              className="input w-full"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm mb-1">Estoque (metros)</label>
-            <input
-              name="stock_meters"
-              type="number"
-              step="0.5"
-              value={form.stock_meters}
-              onChange={handleChange}
-              className="input w-full"
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            name="active"
-            checked={form.active}
-            onChange={handleChange}
-          />
-          <label className="text-sm">Produto ativo</label>
-        </div>
-
-        <div className="flex gap-4">
-          <button
-            type="submit"
-            disabled={loading}
-            className="btn-primary w-full"
-          >
-            {loading ? "Salvando..." : "Salvar alterações"}
-          </button>
-
-          <button
-            type="button"
-            onClick={handleDelete}
-            className="btn-outline w-full"
-          >
-            Excluir
-          </button>
-        </div>
-
-      </form>
-    </div>
-  );
+  return <ProductForm initialData={product} />;
 }
+
+export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
+  const id = String(ctx.params?.id || "");
+
+  const supabase = createClient(
+    process.env.SUPABASE_URL as string,
+    process.env.SUPABASE_SERVICE_ROLE_KEY as string
+  );
+
+  const { data } = await supabase
+    .from("products")
+    .select(`
+      id,
+      name,
+      slug,
+      description,
+      price_per_meter,
+      stock_meters,
+      image_url,
+      active,
+      created_at,
+      variants:product_variants(
+        id,
+        product_id,
+        color_name,
+        color_hex,
+        image_url,
+        stock_meters,
+        active,
+        created_at
+      )
+    `)
+    .eq("id", id)
+    .single();
+
+  return {
+    props: {
+      product: (data || null) as Product | null,
+    },
+  };
+};

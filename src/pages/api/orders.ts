@@ -1,121 +1,140 @@
-import { createClient } from "@supabase/supabase-js";
 import type { NextApiRequest, NextApiResponse } from "next";
+import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
-type Item = {
-  product_id?: string;
-  id?: string | number;
-  slug?: string;
-  name?: string;
+type CheckoutItem = {
+  product_id: string;
   meters: number;
   price_per_meter: number;
+  variant_id?: string | null;
+  color_name?: string | null;
 };
 
-function isUuid(v: any) {
-  if (typeof v !== "string") return false;
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+type RequestBody = {
+  customer: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+  items: CheckoutItem[];
+  shipping_address: {
+    cep: string;
+    street: string;
+    number: string;
+    complement?: string | null;
+    district: string;
+    city: string;
+    state: string;
+  };
+  shipping_price?: number;
+  shipping_method?: string | null;
+  melhor_envio_service_id?: string | number | null;
+};
+
+const supabase = createClient(
+  process.env.SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string
+);
+
+function isValidItems(items: unknown): items is CheckoutItem[] {
+  return (
+    Array.isArray(items) &&
+    items.every(
+      (item) =>
+        item &&
+        typeof item === "object" &&
+        typeof (item as CheckoutItem).product_id === "string" &&
+        typeof (item as CheckoutItem).meters === "number" &&
+        typeof (item as CheckoutItem).price_per_meter === "number"
+    )
+  );
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   try {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const {
-      customer,
-      items,
-      shipping_address,
-      shipping_price,
-      shipping_method,
-      melhor_envio_service_id,
-    } = req.body || {};
+    const body = req.body as RequestBody;
+
+    const customer = body?.customer;
+    const items = body?.items;
+    const shippingAddress = body?.shipping_address;
+    const shippingPrice = Number(body?.shipping_price || 0);
+    const shippingMethod = body?.shipping_method || null;
 
     if (!customer?.name || !customer?.email || !customer?.phone) {
-      return res.status(400).json({ error: "Customer inválido" });
+      return res.status(400).json({ error: "Dados do cliente incompletos" });
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ error: "Carrinho vazio" });
+    if (!isValidItems(items) || items.length === 0) {
+      return res.status(400).json({ error: "Itens inválidos" });
     }
 
     if (
-      !shipping_address?.cep ||
-      !shipping_address?.street ||
-      !shipping_address?.number ||
-      !shipping_address?.district ||
-      !shipping_address?.city ||
-      !shipping_address?.state
+      !shippingAddress?.cep ||
+      !shippingAddress?.street ||
+      !shippingAddress?.number ||
+      !shippingAddress?.district ||
+      !shippingAddress?.city ||
+      !shippingAddress?.state
     ) {
-      return res.status(400).json({
-        error: "Endereço inválido (preencha CEP, rua, número, bairro, cidade e UF)",
-      });
+      return res.status(400).json({ error: "Endereço incompleto" });
     }
 
-    const safeItems: Item[] = items.map((i: any) => ({
-      product_id: i.product_id,
-      id: i.id,
-      slug: i.slug,
-      name: i.name,
-      meters: Number(i.meters || 0),
-      price_per_meter: Number(i.price_per_meter || 0),
-    }));
+    const itemsTotal = items.reduce((acc, item) => {
+      return acc + Number(item.meters || 0) * Number(item.price_per_meter || 0);
+    }, 0);
 
-    const itemsTotal = safeItems.reduce(
-      (acc, i) => acc + i.meters * i.price_per_meter,
-      0
-    );
+    const totalPrice = Number((itemsTotal + shippingPrice).toFixed(2));
 
-    const shippingPriceNum = Number(shipping_price || 0);
-    if (Number.isNaN(shippingPriceNum) || shippingPriceNum < 0) {
-      return res.status(400).json({ error: "shipping_price inválido" });
-    }
-
-    if (!shipping_method) {
-      return res.status(400).json({ error: "shipping_method ausente" });
-    }
-
-    const total = itemsTotal + shippingPriceNum;
-
-    const normalizedShippingAddress = {
-      ...shipping_address,
-      service_id: melhor_envio_service_id ? String(melhor_envio_service_id) : null,
+    const shippingAddressJson = {
+      cep: shippingAddress.cep,
+      street: shippingAddress.street,
+      number: shippingAddress.number,
+      complement: shippingAddress.complement || null,
+      district: shippingAddress.district,
+      city: shippingAddress.city,
+      state: shippingAddress.state,
     };
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
       .insert({
-        status: "pending",
         customer_name: customer.name,
         email: customer.email,
         phone: customer.phone,
-        total_price: total,
-        shipping_address: normalizedShippingAddress,
-        shipping_price: shippingPriceNum,
-        shipping_method,
+        total_price: totalPrice,
+        status: "pending",
+        shipping_address: shippingAddressJson,
+        shipping_price: shippingPrice,
+        shipping_method: shippingMethod,
         shipping_status: "pending",
       })
       .select("id")
       .single();
 
-    if (orderError) {
+    if (orderError || !order) {
       console.error("orders insert error:", orderError);
-      return res.status(500).json({ error: orderError.message });
+      return res.status(500).json({
+        error: orderError?.message || "Erro ao criar pedido",
+      });
     }
 
-    const orderId = order.id;
-
-    const orderItemsPayload = safeItems.map((i) => ({
-      order_id: orderId,
-      product_id: isUuid(i.product_id) ? i.product_id : null,
-      meters: i.meters,
-      price_per_meter: i.price_per_meter,
-      price: Math.round(i.meters * i.price_per_meter * 100),
+    const orderItemsPayload = items.map((item) => ({
+      order_id: order.id,
+      product_id: item.product_id,
+      variant_id: item.variant_id || null,
+      color_name: item.color_name || null,
+      meters: Number(item.meters),
+      price_per_meter: Number(item.price_per_meter),
+      price: Number(
+        (Number(item.meters) * Number(item.price_per_meter)).toFixed(2)
+      ),
     }));
 
     const { error: itemsError } = await supabase
@@ -124,12 +143,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (itemsError) {
       console.error("order_items insert error:", itemsError);
-      return res.status(500).json({ error: itemsError.message });
+
+      await supabase.from("orders").delete().eq("id", order.id);
+
+      return res.status(500).json({
+        error: itemsError.message || "Erro ao salvar itens do pedido",
+      });
     }
 
-    return res.status(200).json({ orderId });
-  } catch (e: any) {
-    console.error("orders API error:", e);
-    return res.status(500).json({ error: e?.message || "Internal error" });
+    return res.status(200).json({
+      success: true,
+      orderId: order.id,
+    });
+  } catch (err: any) {
+    console.error("orders unexpected error:", err);
+    return res.status(500).json({
+      error: err?.message || "Erro interno",
+    });
   }
 }

@@ -25,7 +25,19 @@ export default async function handler(
         total_price,
         shipping_price,
         shipping_method,
-        created_at
+        created_at,
+        items:order_items(
+          id,
+          product_id,
+          variant_id,
+          color_name,
+          meters,
+          price_per_meter,
+          price,
+          product:products(
+            name
+          )
+        )
       `)
       .order("created_at", { ascending: false });
 
