@@ -2,6 +2,8 @@ import { useRouter } from "next/router";
 import useSWR from "swr";
 import { useMemo, useState } from "react";
 import { addToCart } from "@/lib/cart";
+import ColorSelector from "@/components/products/ColorSelector";
+import type { Product, ProductVariant } from "@/types/catalog";
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -28,11 +30,24 @@ export default function ProdutoDetalhe() {
     fetcher
   );
 
-  const product = data?.product;
+  const product = (data?.product || null) as Product | null;
 
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(
+    null
+  );
   const [meters, setMeters] = useState(0.5);
 
+  const activeVariants = useMemo(() => {
+    return (product?.variants || []).filter((v) => v.active);
+  }, [product]);
+
+  const effectiveVariant = selectedVariant || activeVariants[0] || null;
+
   const price = Number(product?.price_per_meter ?? 0);
+  const currentImage = effectiveVariant?.image_url || product?.image_url || null;
+  const currentStock = Number(
+    effectiveVariant?.stock_meters ?? product?.stock_meters ?? 0
+  );
 
   const total = useMemo(() => {
     return meters * price;
@@ -46,17 +61,29 @@ export default function ProdutoDetalhe() {
     return <div className="p-10">Produto não encontrado</div>;
   }
 
+  const safeProduct = product;
+
   function handleAddToCart() {
+    if (activeVariants.length > 0 && !effectiveVariant) {
+      alert("Selecione uma cor antes de adicionar ao carrinho.");
+      return;
+    }
+
+    if (meters > currentStock) {
+      alert("Estoque insuficiente para esta cor.");
+      return;
+    }
+
     addToCart({
-      product_id: product.id,
-      slug: product.slug,
-      name: product.name,
-      image_url: product.image_url ?? null,
+      product_id: safeProduct.id,
+      slug: safeProduct.slug,
+      name: safeProduct.name,
+      image_url: currentImage,
       meters,
       price_per_meter: price,
-      variant_id: null,
-      color_name: null,
-      color_hex: null,
+      variant_id: effectiveVariant?.id || null,
+      color_name: effectiveVariant?.color_name || null,
+      color_hex: effectiveVariant?.color_hex || null,
     });
 
     router.push("/carrinho");
@@ -65,10 +92,10 @@ export default function ProdutoDetalhe() {
   return (
     <div className="max-w-6xl mx-auto p-6 grid md:grid-cols-2 gap-10">
       <div>
-        {product.image_url ? (
+        {currentImage ? (
           <img
-            src={product.image_url}
-            alt={product.name}
+            src={currentImage}
+            alt={safeProduct.name}
             className="w-full rounded-2xl border object-cover"
           />
         ) : (
@@ -79,10 +106,10 @@ export default function ProdutoDetalhe() {
       </div>
 
       <div>
-        <h1 className="text-3xl font-bold">{product.name}</h1>
+        <h1 className="text-3xl font-bold">{safeProduct.name}</h1>
 
-        {product.description ? (
-          <p className="mt-3 text-gray-600">{product.description}</p>
+        {safeProduct.description ? (
+          <p className="mt-3 text-gray-600">{safeProduct.description}</p>
         ) : null}
 
         <div className="mt-6">
@@ -95,6 +122,26 @@ export default function ProdutoDetalhe() {
           <p className="text-xl font-bold">{money(total)}</p>
         </div>
 
+        {activeVariants.length > 0 ? (
+          <div className="mt-6">
+            <ColorSelector
+              variants={activeVariants}
+              selectedVariantId={effectiveVariant?.id || null}
+              onSelect={(variant) => setSelectedVariant(variant)}
+            />
+          </div>
+        ) : null}
+
+        {effectiveVariant?.color_name ? (
+          <p className="mt-3 text-sm text-slate-600">
+            Cor selecionada: <strong>{effectiveVariant.color_name}</strong>
+          </p>
+        ) : null}
+
+        <p className="mt-2 text-sm text-slate-500">
+          Estoque disponível: {Number(currentStock).toFixed(1)} m
+        </p>
+
         <div className="mt-6">
           <p className="font-medium mb-3">Selecione a metragem</p>
 
@@ -104,9 +151,7 @@ export default function ProdutoDetalhe() {
                 key={m}
                 type="button"
                 onClick={() => setMeters(m)}
-                className={`btn-outline ${
-                  meters === m ? "bg-gray-100" : ""
-                }`}
+                className={`btn-outline ${meters === m ? "bg-gray-100" : ""}`}
               >
                 {m} m
               </button>

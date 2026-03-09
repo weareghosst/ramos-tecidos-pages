@@ -1,4 +1,4 @@
-import { ProductVariant } from "../../types/catalog";
+import type { ProductVariant } from "@/types/catalog";
 
 type Props = {
   variants: ProductVariant[];

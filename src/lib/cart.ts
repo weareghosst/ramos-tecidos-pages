@@ -1,76 +1,84 @@
-import { CartItem } from "../types/catalog";
+export type CartItem = {
+  id: string;
+  product_id: string;
+  slug: string;
+  name: string;
+  image_url: string | null;
+  meters: number;
+  price_per_meter: number;
+  variant_id: string | null;
+  color_name: string | null;
+  color_hex: string | null;
+};
 
-const CART_KEY = "ramos-tecidos-cart";
+const STORAGE_KEY = "ramos_cart_v2";
 
-export function getCart(): CartItem[] {
+function getStorage(): CartItem[] {
   if (typeof window === "undefined") return [];
 
-  const raw = window.localStorage.getItem(CART_KEY);
-  if (!raw) return [];
+  const stored = localStorage.getItem(STORAGE_KEY);
+  if (!stored) return [];
 
   try {
-    return JSON.parse(raw) as CartItem[];
+    return JSON.parse(stored) as CartItem[];
   } catch {
     return [];
   }
 }
 
-export function saveCart(items: CartItem[]) {
+function saveStorage(cart: CartItem[]) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(CART_KEY, JSON.stringify(items));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cart));
+  window.dispatchEvent(new Event("cart-updated"));
+}
+
+export function getCart(): CartItem[] {
+  return getStorage();
 }
 
 export function buildCartItemId(productId: string, variantId: string | null) {
   return `${productId}__${variantId || "sem-variante"}`;
 }
 
-export function addToCart(item: Omit<CartItem, "id">) {
-  const items = getCart();
+export function addToCart(
+  item: Omit<CartItem, "id">
+) {
+  const cart = getStorage();
   const generatedId = buildCartItemId(item.product_id, item.variant_id);
 
-  const existingIndex = items.findIndex((cartItem) => cartItem.id === generatedId);
+  const existingIndex = cart.findIndex((i) => i.id === generatedId);
 
   if (existingIndex >= 0) {
-    items[existingIndex].meters += item.meters;
+    cart[existingIndex].meters += item.meters;
   } else {
-    items.push({
+    cart.push({
       ...item,
       id: generatedId,
     });
   }
 
-  saveCart(items);
-
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("cart-updated"));
-  }
+  saveStorage(cart);
 }
 
-export function updateCartItemMeters(id: string, meters: number) {
-  const items = getCart().map((item) =>
-    item.id === id ? { ...item, meters } : item
+export function updateCartMeters(id: string, meters: number) {
+  const safeMeters = Math.max(0.5, Math.round(meters * 2) / 2);
+
+  const cart = getStorage().map((item) =>
+    item.id === id ? { ...item, meters: safeMeters } : item
   );
 
-  saveCart(items);
-
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("cart-updated"));
-  }
+  saveStorage(cart);
 }
 
-export function removeCartItem(id: string) {
-  const items = getCart().filter((item) => item.id !== id);
-  saveCart(items);
-
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("cart-updated"));
-  }
+export function removeFromCart(id: string) {
+  const cart = getStorage().filter((i) => i.id !== id);
+  saveStorage(cart);
 }
 
 export function clearCart() {
-  saveCart([]);
+  saveStorage([]);
+}
 
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("cart-updated"));
-  }
+export function cartCountItems(): number {
+  return getStorage().length;
 }
