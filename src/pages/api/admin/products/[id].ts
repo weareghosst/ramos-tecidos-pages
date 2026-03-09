@@ -1,6 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
-import { ProductVariant } from "../../../../types/catalog";
+import type { ProductVariant } from "../../../../types/catalog";
 
 function slugify(value: string) {
   return value
@@ -40,6 +40,7 @@ export default async function handler(
         price_per_meter,
         stock_meters,
         image_url,
+        fabric_type,
         active,
         created_at,
         variants:product_variants(
@@ -71,6 +72,7 @@ export default async function handler(
         description,
         price_per_meter,
         image_url,
+        fabric_type,
         active,
         variants,
       } = req.body as {
@@ -79,12 +81,22 @@ export default async function handler(
         description: string | null;
         price_per_meter: number;
         image_url: string | null;
+        fabric_type?: string | null;
         active: boolean;
         variants: ProductVariant[];
       };
 
       const cleanVariants = Array.isArray(variants)
-        ? variants.filter((v) => v?.color_name?.trim())
+        ? variants
+            .filter((v) => v?.color_name?.trim())
+            .map((v) => ({
+              id: v.id || undefined,
+              color_name: v.color_name.trim(),
+              color_hex: v.color_hex || null,
+              image_url: v.image_url || null,
+              stock_meters: toSafeNumber(v.stock_meters),
+              active: typeof v.active === "boolean" ? v.active : true,
+            }))
         : [];
 
       const stockTotal = cleanVariants.reduce((sum, variant) => {
@@ -100,6 +112,7 @@ export default async function handler(
           price_per_meter: toSafeNumber(price_per_meter),
           stock_meters: stockTotal,
           image_url: image_url || null,
+          fabric_type: fabric_type || null,
           active: typeof active === "boolean" ? active : true,
         })
         .eq("id", id);
@@ -136,23 +149,46 @@ export default async function handler(
         }
       }
 
-      if (cleanVariants.length > 0) {
-        const upsertPayload = cleanVariants.map((variant) => ({
-          id: variant.id,
+      const existingToUpsert = cleanVariants
+        .filter((variant) => !!variant.id)
+        .map((variant) => ({
+          id: variant.id as string,
           product_id: id,
-          color_name: variant.color_name.trim(),
-          color_hex: variant.color_hex || null,
-          image_url: variant.image_url || null,
+          color_name: variant.color_name,
+          color_hex: variant.color_hex,
+          image_url: variant.image_url,
           stock_meters: toSafeNumber(variant.stock_meters),
-          active: typeof variant.active === "boolean" ? variant.active : true,
+          active: variant.active,
         }));
 
+      if (existingToUpsert.length > 0) {
         const { error: upsertError } = await supabase
           .from("product_variants")
-          .upsert(upsertPayload);
+          .upsert(existingToUpsert);
 
         if (upsertError) {
           return res.status(500).json({ error: upsertError.message });
+        }
+      }
+
+      const newVariantsToInsert = cleanVariants
+        .filter((variant) => !variant.id)
+        .map((variant) => ({
+          product_id: id,
+          color_name: variant.color_name,
+          color_hex: variant.color_hex,
+          image_url: variant.image_url,
+          stock_meters: toSafeNumber(variant.stock_meters),
+          active: variant.active,
+        }));
+
+      if (newVariantsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from("product_variants")
+          .insert(newVariantsToInsert);
+
+        if (insertError) {
+          return res.status(500).json({ error: insertError.message });
         }
       }
 
