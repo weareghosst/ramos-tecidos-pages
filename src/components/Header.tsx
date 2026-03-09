@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
-
-const CART_KEY = "ramos_cart_v1";
+import { getCart } from "@/lib/cart";
 
 export default function Header() {
   const [count, setCount] = useState(0);
@@ -9,8 +8,7 @@ export default function Header() {
   useEffect(() => {
     function readCount() {
       try {
-        const raw = localStorage.getItem(CART_KEY);
-        const items = raw ? JSON.parse(raw) : [];
+        const items = getCart();
         setCount(Array.isArray(items) ? items.length : 0);
       } catch {
         setCount(0);
@@ -19,48 +17,47 @@ export default function Header() {
 
     readCount();
 
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === CART_KEY) readCount();
-    };
-    window.addEventListener("storage", onStorage);
-
+    const onStorage = () => readCount();
     const onFocus = () => readCount();
+    const onCartUpdated = () => readCount();
+
+    window.addEventListener("storage", onStorage);
     window.addEventListener("focus", onFocus);
+    window.addEventListener("cart-updated", onCartUpdated);
 
     return () => {
       window.removeEventListener("storage", onStorage);
       window.removeEventListener("focus", onFocus);
+      window.removeEventListener("cart-updated", onCartUpdated);
     };
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="container-page flex items-center justify-between h-16">
-        <Link href="/" className="flex items-center gap-3">
+    <header className="border-b border-slate-200 bg-white/90 backdrop-blur">
+      <div className="container-page h-16 flex items-center justify-between">
+        <Link href="/" className="font-bold tracking-tight text-lg">
+          RAMOS TECIDOS
+        </Link>
 
-  <span className="text-sm font-bold tracking-widest text-slate-900">
-    RAMOS TECIDOS
-  </span>
-</Link>
-        <nav className="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <Link
-            href="/produtos"
-            className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900 transition"
-          >
+        <nav className="flex items-center gap-4 text-sm font-medium">
+          <Link href="/produtos" className="hover:text-slate-700">
             Produtos
           </Link>
 
           <Link
             href="/carrinho"
-            className="rounded-lg px-3 py-2 hover:bg-slate-100 hover:text-slate-900 transition flex items-center gap-2"
+            className="btn-outline px-3 py-1.5 rounded-lg inline-flex items-center gap-2"
           >
-            Carrinho
-            <span className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-slate-50 px-2 py-0.5 text-xs text-slate-700">
-              <span className="font-semibold">{count}</span>
+            <span>Carrinho</span>
+            <span className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-full border border-slate-300 px-1 text-xs">
+              {count}
             </span>
           </Link>
 
-          <Link href="/checkout" className="btn-primary px-3 py-1.5 text-sm">
+          <Link
+            href="/checkout"
+            className="btn-primary px-3 py-1.5 rounded-lg"
+          >
             Finalizar
           </Link>
         </nav>

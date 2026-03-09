@@ -130,6 +130,7 @@ export default function Home({ products }: HomeProps) {
           </p>
         </div>
       </section>
+      
 
       <section className="mt-12 card p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
