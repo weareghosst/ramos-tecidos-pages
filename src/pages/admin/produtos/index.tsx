@@ -2,12 +2,37 @@ import Link from "next/link";
 import { GetServerSideProps } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { Product } from "../../../types/catalog";
+import { useRouter } from "next/router";
 
 type Props = {
   products: Product[];
 };
 
 export default function AdminProductsPage({ products }: Props) {
+  const router = useRouter();
+
+  async function handleDeleteProduct(id: string, name: string) {
+    const confirmed = window.confirm(`Excluir o produto "${name}"?`);
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/admin/products/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || "Erro ao excluir produto");
+      }
+
+      router.replace(router.asPath);
+    } catch (error: any) {
+      console.error(error);
+      alert(error?.message || "Erro ao excluir produto");
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -31,7 +56,7 @@ export default function AdminProductsPage({ products }: Props) {
               <th className="px-4 py-3">Estoque</th>
               <th className="px-4 py-3">Cores</th>
               <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3"></th>
+              <th className="px-4 py-3">Ações</th>
             </tr>
           </thead>
 
@@ -51,12 +76,22 @@ export default function AdminProductsPage({ products }: Props) {
                   {product.active ? "ativo" : "inativo"}
                 </td>
                 <td className="px-4 py-3">
-                  <Link
-                    href={`/admin/produtos/${product.id}`}
-                    className="font-medium text-slate-900 hover:text-slate-700"
-                  >
-                    Editar
-                  </Link>
+                  <div className="flex items-center gap-3">
+                    <Link
+                      href={`/admin/produtos/${product.id}`}
+                      className="font-medium text-slate-900 hover:text-slate-700"
+                    >
+                      Editar
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteProduct(product.id, product.name)}
+                      className="font-medium text-red-600 hover:text-red-700"
+                    >
+                      Excluir
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

@@ -166,5 +166,24 @@ export default async function handler(
     }
   }
 
+  if (req.method === "DELETE") {
+    try {
+      const { error } = await supabase
+        .from("products")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        return res.status(500).json({ error: error.message });
+      }
+
+      return res.status(200).json({ success: true });
+    } catch (error: any) {
+      return res.status(500).json({
+        error: error?.message || "Erro interno ao excluir produto",
+      });
+    }
+  }
+
   return res.status(405).json({ error: "Método não permitido" });
 }
