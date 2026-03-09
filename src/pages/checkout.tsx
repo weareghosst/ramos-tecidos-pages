@@ -67,6 +67,7 @@ export default function Checkout() {
   }, [orderId]);
 
   const itemsTotal = useMemo(() => calcItemsTotal(items), [items]);
+
   const total = useMemo(() => {
     return itemsTotal + Number(shippingPrice || 0);
   }, [itemsTotal, shippingPrice]);
@@ -290,7 +291,9 @@ export default function Checkout() {
           <div className="mt-8 space-y-8">
             <div className="grid gap-4 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm font-medium">Nome completo</label>
+                <label className="mb-2 block text-sm font-medium">
+                  Nome completo
+                </label>
                 <input
                   className="w-full rounded-xl border border-slate-200 px-4 py-3"
                   placeholder="Seu nome"
@@ -310,7 +313,9 @@ export default function Checkout() {
               </div>
 
               <div className="md:col-span-2">
-                <label className="mb-2 block text-sm font-medium">WhatsApp</label>
+                <label className="mb-2 block text-sm font-medium">
+                  WhatsApp
+                </label>
                 <input
                   className="w-full rounded-xl border border-slate-200 px-4 py-3"
                   placeholder="(11) 99999-9999"
@@ -358,7 +363,9 @@ export default function Checkout() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium">Número</label>
+                  <label className="mb-2 block text-sm font-medium">
+                    Número
+                  </label>
                   <input
                     className="w-full rounded-xl border border-slate-200 px-4 py-3"
                     placeholder="123"
@@ -380,7 +387,9 @@ export default function Checkout() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium">Bairro</label>
+                  <label className="mb-2 block text-sm font-medium">
+                    Bairro
+                  </label>
                   <input
                     className="w-full rounded-xl border border-slate-200 px-4 py-3"
                     placeholder="Bairro..."
@@ -390,7 +399,9 @@ export default function Checkout() {
                 </div>
 
                 <div>
-                  <label className="mb-2 block text-sm font-medium">Cidade</label>
+                  <label className="mb-2 block text-sm font-medium">
+                    Cidade
+                  </label>
                   <input
                     className="w-full rounded-xl border border-slate-200 px-4 py-3"
                     placeholder="Cidade..."
@@ -408,7 +419,9 @@ export default function Checkout() {
                 ) : null}
 
                 {shippingError ? (
-                  <p className="mt-3 text-sm text-red-600">{shippingError}</p>
+                  <p className="mt-3 text-sm text-red-600">
+                    {shippingError}
+                  </p>
                 ) : null}
 
                 {shippingOptions.length === 0 ? (
@@ -429,9 +442,12 @@ export default function Checkout() {
                           onChange={() => onSelectShipping(opt.id)}
                         />
                         <div>
-                          <p className="font-medium text-slate-900">{opt.label}</p>
+                          <p className="font-medium text-slate-900">
+                            {opt.label}
+                          </p>
                           <p className="text-sm text-slate-600">
-                            R$ {Number(opt.price).toFixed(2)} • {opt.days_min}-{opt.days_max} dias
+                            R$ {Number(opt.price).toFixed(2)} • {opt.days_min}-
+                            {opt.days_max} dias
                           </p>
                         </div>
                       </label>
@@ -511,14 +527,22 @@ export default function Checkout() {
 
         <div className="mt-4 space-y-4">
           {items.map((item) => (
-            <div key={item.id} className="rounded-xl border border-slate-200 p-3">
+            <div
+              key={item.id}
+              className="rounded-xl border border-slate-200 p-3"
+            >
               <p className="font-medium text-slate-900">{item.name}</p>
+
               {item.color_name ? (
-                <p className="mt-1 text-sm text-slate-600">Cor: {item.color_name}</p>
+                <p className="mt-1 text-sm text-slate-600">
+                  Cor: {item.color_name}
+                </p>
               ) : null}
+
               <p className="mt-1 text-sm text-slate-600">
                 {item.meters.toFixed(1)} m × {formatBRL(item.price_per_meter)}
               </p>
+
               <p className="mt-1 text-sm font-medium text-slate-900">
                 {formatBRL(item.meters * item.price_per_meter)}
               </p>
