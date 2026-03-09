@@ -60,8 +60,7 @@ export default async function handler(
       !shipping_address?.state
     ) {
       return res.status(400).json({
-        error:
-          "Endereço inválido (preencha CEP, rua, número, bairro, cidade e UF)",
+        error: "Endereço inválido",
       });
     }
 
@@ -74,6 +73,12 @@ export default async function handler(
       meters: Number(i.meters || 0),
       price_per_meter: Number(i.price_per_meter || 0),
     }));
+
+    if (safeItems.some((i) => !isUuid(i.product_id))) {
+      return res.status(400).json({
+        error: "Há item no carrinho sem product_id válido. Limpe o carrinho e adicione o produto novamente.",
+      });
+    }
 
     const itemsTotal = safeItems.reduce(
       (acc, i) => acc + i.meters * i.price_per_meter,
@@ -94,9 +99,7 @@ export default async function handler(
 
     const normalizedShippingAddress = {
       ...shipping_address,
-      service_id: melhor_envio_service_id
-        ? String(melhor_envio_service_id)
-        : null,
+      service_id: melhor_envio_service_id ? String(melhor_envio_service_id) : null,
     };
 
     const { data: order, error: orderError } = await supabase
@@ -124,7 +127,7 @@ export default async function handler(
 
     const orderItemsPayload = safeItems.map((i) => ({
       order_id: orderId,
-      product_id: isUuid(i.product_id) ? i.product_id : null,
+      product_id: i.product_id,
       variant_id: isUuid(i.variant_id) ? i.variant_id : null,
       color_name: i.color_name || null,
       meters: Number(i.meters.toFixed(2)),

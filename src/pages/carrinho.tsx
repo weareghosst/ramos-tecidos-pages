@@ -6,19 +6,7 @@ import {
   removeFromCart,
   updateCartMeters,
 } from "@/lib/cart";
-
-type CartItem = {
-  id: string;
-  product_id: string;
-  slug: string;
-  name: string;
-  image_url: string | null;
-  meters: number;
-  price_per_meter: number;
-  variant_id: string | null;
-  color_name: string | null;
-  color_hex: string | null;
-};
+import type { CartItem } from "@/types/catalog";
 
 function formatBRL(value?: number) {
   const safe = typeof value === "number" && !isNaN(value) ? value : 0;
@@ -62,19 +50,21 @@ export default function Carrinho() {
   }
 
   function inc(id: string) {
-    const it = items.find((i) => i.id === id);
-    if (!it) return;
-    setMeters(id, (it.meters || 0) + 0.5);
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+    setMeters(id, item.meters + 0.5);
   }
 
   function dec(id: string) {
-    const it = items.find((i) => i.id === id);
-    if (!it) return;
-    setMeters(id, Math.max(0.5, (it.meters || 0.5) - 0.5));
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+    setMeters(id, Math.max(0.5, item.meters - 0.5));
   }
 
   const total = useMemo(() => {
-    return items.reduce((acc, i) => acc + (i.meters || 0) * (i.price_per_meter || 0), 0);
+    return items.reduce((acc, item) => {
+      return acc + item.meters * item.price_per_meter;
+    }, 0);
   }, [items]);
 
   return (
@@ -107,7 +97,7 @@ export default function Carrinho() {
         <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
           <div className="space-y-4">
             {items.map((item) => {
-              const sub = (item.meters || 0) * (item.price_per_meter || 0);
+              const subtotal = item.meters * item.price_per_meter;
 
               return (
                 <div key={item.id} className="card p-4">
@@ -156,20 +146,18 @@ export default function Carrinho() {
                           type="button"
                           onClick={() => dec(item.id)}
                           className="h-9 w-9 rounded-xl border border-slate-300 hover:bg-slate-50 transition"
-                          aria-label="Diminuir metragem"
                         >
                           -
                         </button>
 
                         <div className="min-w-[96px] text-center text-sm font-medium">
-                          {String(item.meters ?? 0.5).replace(".", ",")}m
+                          {item.meters.toFixed(1).replace(".", ",")}m
                         </div>
 
                         <button
                           type="button"
                           onClick={() => inc(item.id)}
                           className="h-9 w-9 rounded-xl border border-slate-300 hover:bg-slate-50 transition"
-                          aria-label="Aumentar metragem"
                         >
                           +
                         </button>
@@ -178,7 +166,7 @@ export default function Carrinho() {
 
                     <div className="text-right">
                       <p className="text-sm text-slate-500">Subtotal</p>
-                      <p className="font-semibold">{formatBRL(sub)}</p>
+                      <p className="font-semibold">{formatBRL(subtotal)}</p>
                     </div>
                   </div>
                 </div>
@@ -203,7 +191,10 @@ export default function Carrinho() {
               Você paga via Pix e a confirmação é automática.
             </p>
 
-            <Link href="/checkout" className="mt-6 inline-flex w-full justify-center btn-primary px-5 py-3">
+            <Link
+              href="/checkout"
+              className="mt-6 inline-flex w-full justify-center btn-primary px-5 py-3"
+            >
               Ir para checkout
             </Link>
 

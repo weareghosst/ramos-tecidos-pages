@@ -18,7 +18,7 @@ export type Product = {
   stock_meters: number;
   image_url: string | null;
   active: boolean;
-  created_at: string;
+  created_at?: string;
   variants?: ProductVariant[];
 };
 
