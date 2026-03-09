@@ -51,6 +51,9 @@ export default function ProductForm({ initialData }: Props) {
     initialData?.price_per_meter?.toString() || ""
   );
   const [imageUrl, setImageUrl] = useState(initialData?.image_url || "");
+  const [fabricType, setFabricType] = useState(
+    (initialData as any)?.fabric_type || ""
+  );
   const [active, setActive] = useState(initialData?.active ?? true);
   const [variants, setVariants] = useState<ProductVariant[]>(
     initialData?.variants?.length
@@ -171,6 +174,7 @@ export default function ProductForm({ initialData }: Props) {
         description: description.trim() || null,
         price_per_meter: toSafeNumber(pricePerMeter),
         image_url: imageUrl.trim() || null,
+        fabric_type: fabricType || null,
         active,
         variants: validVariants,
       };
@@ -254,6 +258,23 @@ export default function ProductForm({ initialData }: Props) {
           </div>
 
           <div className="space-y-2">
+            <label className="text-sm font-medium">Tipo do tecido</label>
+            <select
+              className="w-full rounded-xl border border-slate-200 px-4 py-3"
+              value={fabricType}
+              onChange={(e) => setFabricType(e.target.value)}
+            >
+              <option value="">Selecione</option>
+              <option value="Tricoline Lisa">Tricoline Lisa</option>
+              <option value="Tricoline Estampada">Tricoline Estampada</option>
+              <option value="Tricoline Digital">Tricoline Digital</option>
+              <option value="Malhas">Malhas</option>
+              <option value="Mantas e Fibras">Mantas e Fibras</option>
+              <option value="Outros">Outros</option>
+            </select>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-sm font-medium">Preço por metro</label>
             <input
               type="number"
@@ -264,7 +285,7 @@ export default function ProductForm({ initialData }: Props) {
             />
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 md:col-span-2">
             <label className="text-sm font-medium">Imagem principal (URL)</label>
             <input
               className="w-full rounded-xl border border-slate-200 px-4 py-3"
