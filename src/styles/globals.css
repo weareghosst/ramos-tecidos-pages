@@ -105,3 +105,23 @@ a {
     100% { transform: translateX(100%); }
   }
 }
+.card {
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #e5e7eb;
+}
+
+.btn-primary {
+  background: #0f172a;
+  color: white;
+  border-radius: 12px;
+}
+
+.btn-primary:hover {
+  background: #020617;
+}
+
+.btn-outline {
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+}

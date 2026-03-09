@@ -1,55 +1,50 @@
 import Link from "next/link";
 
-export type ProductCardProduct = {
-  id: string;
-  name: string;
-  price_per_meter: number;
-  image_url?: string | null;
-  slug: string;
-  fabric_type?: string | null;
-};
-
-export default function ProductCard({
-  product,
-}: {
-  product: ProductCardProduct;
-}) {
+export default function ProductCard({ product }: any) {
   return (
-    <div className="card overflow-hidden">
-      <div className="aspect-square bg-slate-100">
+    <div className="group bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl transition">
+
+      <div className="aspect-square bg-slate-100 overflow-hidden">
+
         {product.image_url ? (
           <img
             src={product.image_url}
             alt={product.name}
-            className="h-full w-full object-cover"
+            className="w-full h-full object-cover group-hover:scale-105 transition"
           />
         ) : (
-          <div className="flex h-full items-center justify-center text-slate-400">
+          <div className="flex items-center justify-center h-full text-slate-400">
             Sem imagem
           </div>
         )}
+
       </div>
 
-      <div className="p-4">
-        {product.fabric_type ? (
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+      <div className="p-4 space-y-2">
+
+        {product.fabric_type && (
+          <span className="text-xs text-slate-500 uppercase tracking-wide">
             {product.fabric_type}
-          </p>
-        ) : null}
+          </span>
+        )}
 
-        <h3 className="text-lg font-semibold text-slate-900">{product.name}</h3>
+        <h3 className="font-semibold text-lg text-slate-900">
+          {product.name}
+        </h3>
 
-        <p className="mt-2 text-slate-600">
-          R$ {Number(product.price_per_meter || 0).toFixed(2)} / metro
+        <p className="text-slate-600">
+          R$ {Number(product.price_per_meter).toFixed(2)} / metro
         </p>
 
         <Link
           href={`/produto/${product.slug}`}
-          className="mt-4 inline-flex btn-primary px-4 py-2"
+          className="inline-block mt-2 text-sm font-medium text-slate-900 hover:underline"
         >
-          Ver produto
+          Ver produto →
         </Link>
+
       </div>
+
     </div>
   );
 }
