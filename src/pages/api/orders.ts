@@ -19,10 +19,15 @@ type Item = {
 function isUuid(v: any) {
   if (typeof v !== "string") return false;
 
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    v
+  );
 }
 
-export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
   try {
     if (req.method !== "POST") {
       res.setHeader("Allow", "POST");
@@ -55,7 +60,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       !shipping_address?.state
     ) {
       return res.status(400).json({
-        error: "Endereço inválido (preencha CEP, rua, número, bairro, cidade e UF)",
+        error:
+          "Endereço inválido (preencha CEP, rua, número, bairro, cidade e UF)",
       });
     }
 
@@ -84,11 +90,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "shipping_method ausente" });
     }
 
-    const total = itemsTotal + shippingPriceNum;
+    const total = Number((itemsTotal + shippingPriceNum).toFixed(2));
 
     const normalizedShippingAddress = {
       ...shipping_address,
-      service_id: melhor_envio_service_id ? String(melhor_envio_service_id) : null,
+      service_id: melhor_envio_service_id
+        ? String(melhor_envio_service_id)
+        : null,
     };
 
     const { data: order, error: orderError } = await supabase
@@ -119,8 +127,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       product_id: isUuid(i.product_id) ? i.product_id : null,
       variant_id: isUuid(i.variant_id) ? i.variant_id : null,
       color_name: i.color_name || null,
-      meters: i.meters,
-      price_per_meter: i.price_per_meter,
+      meters: Number(i.meters.toFixed(2)),
+      price_per_meter: Number(i.price_per_meter.toFixed(2)),
       price: Number((i.meters * i.price_per_meter).toFixed(2)),
     }));
 
