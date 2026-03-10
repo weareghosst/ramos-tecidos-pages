@@ -15,6 +15,27 @@ function cleanCep(v: string) {
   return v.replace(/\D/g, "").slice(0, 8);
 }
 
+function cleanDocument(v: string) {
+  return v.replace(/\D/g, "").slice(0, 14);
+}
+
+function formatDocument(v: string) {
+  const digits = cleanDocument(v);
+
+  if (digits.length <= 11) {
+    return digits
+      .replace(/^(\d{3})(\d)/, "$1.$2")
+      .replace(/^(\d{3})\.(\d{3})(\d)/, "$1.$2.$3")
+      .replace(/\.(\d{3})(\d)/, ".$1-$2");
+  }
+
+  return digits
+    .replace(/^(\d{2})(\d)/, "$1.$2")
+    .replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3")
+    .replace(/\.(\d{3})(\d)/, ".$1/$2")
+    .replace(/(\d{4})(\d)/, "$1-$2");
+}
+
 function formatBRL(value?: number) {
   const safe = typeof value === "number" && !isNaN(value) ? value : 0;
   return safe.toLocaleString("pt-BR", {
@@ -44,6 +65,7 @@ export default function Checkout() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [document, setDocument] = useState("");
   const [cep, setCep] = useState("");
   const [street, setStreet] = useState("");
   const [number, setNumber] = useState("");
@@ -162,6 +184,13 @@ export default function Checkout() {
         return;
       }
 
+      const cleanDoc = cleanDocument(document);
+
+      if (cleanDoc.length !== 11 && cleanDoc.length !== 14) {
+        alert("Informe um CPF ou CNPJ válido.");
+        return;
+      }
+
       const res = await fetch("/api/orders", {
         method: "POST",
         headers: {
@@ -182,6 +211,7 @@ export default function Checkout() {
             district,
             city,
             state: stateUf,
+            document: cleanDoc,
           },
           shipping_price: shippingPrice,
           shipping_method: selectedShippingOption.label,
@@ -270,6 +300,8 @@ export default function Checkout() {
     !name ||
     !email ||
     !phone ||
+    (cleanDocument(document).length !== 11 &&
+      cleanDocument(document).length !== 14) ||
     cleanCep(cep).length !== 8 ||
     !street ||
     !number ||
@@ -312,7 +344,7 @@ export default function Checkout() {
                 />
               </div>
 
-              <div className="md:col-span-2">
+              <div>
                 <label className="mb-2 block text-sm font-medium">
                   WhatsApp
                 </label>
@@ -321,6 +353,18 @@ export default function Checkout() {
                   placeholder="(11) 99999-9999"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium">
+                  CPF ou CNPJ
+                </label>
+                <input
+                  className="w-full rounded-xl border border-slate-200 px-4 py-3"
+                  placeholder="000.000.000-00"
+                  value={formatDocument(document)}
+                  onChange={(e) => setDocument(e.target.value)}
                 />
               </div>
             </div>

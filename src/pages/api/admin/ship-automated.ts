@@ -103,7 +103,8 @@ export default async function handler(
 
     if (!serviceId) {
       return res.status(400).json({
-        error: "Pedido sem service_id do Melhor Envio. Refaça o checkout com um frete selecionado.",
+        error:
+          "Pedido sem service_id do Melhor Envio. Refaça o checkout com um frete selecionado.",
       });
     }
 
@@ -115,6 +116,14 @@ export default async function handler(
     }
 
     const shippingAddress = order.shipping_address || {};
+    const recipientDocument = onlyDigits(shippingAddress.document || "");
+
+    if (recipientDocument.length !== 11 && recipientDocument.length !== 14) {
+      return res.status(400).json({
+        error:
+          "CPF ou CNPJ do destinatário é obrigatório. Novos pedidos devem ser criados com esse campo no checkout.",
+      });
+    }
 
     const to = {
       name: order.customer_name ?? "Cliente",
@@ -127,6 +136,7 @@ export default async function handler(
       state_abbr: shippingAddress.state ?? "",
       postal_code: onlyDigits(shippingAddress.cep ?? ""),
       complement: shippingAddress.complement ?? "",
+      document: recipientDocument,
     };
 
     const from = {
@@ -172,6 +182,7 @@ export default async function handler(
       !to.city && "cidade",
       !to.state_abbr && "UF",
       !to.postal_code && "CEP",
+      !to.document && "CPF/CNPJ",
     ].filter(Boolean);
 
     if (missingToFields.length > 0) {
