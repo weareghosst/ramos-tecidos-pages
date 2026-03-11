@@ -99,12 +99,15 @@ export default async function handler(
       return res.status(500).json({ error: "Erro ao buscar itens do pedido" });
     }
 
-    const serviceId = pickShippingServiceId(order);
+    const rawServiceId = pickShippingServiceId(order);
+    const serviceId = rawServiceId !== null && rawServiceId !== undefined
+      ? Number(rawServiceId)
+      : null;
 
-    if (!serviceId) {
+    if (!serviceId || !Number.isFinite(serviceId)) {
       return res.status(400).json({
         error:
-          "Pedido sem service_id do Melhor Envio. Refaça o checkout com um frete selecionado.",
+          "Pedido sem service_id válido do Melhor Envio. Refaça o checkout com um frete selecionado.",
       });
     }
 
