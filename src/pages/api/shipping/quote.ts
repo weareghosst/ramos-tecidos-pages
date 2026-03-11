@@ -4,6 +4,8 @@ type CartItem = {
   meters?: number;
   price_per_meter?: number;
   name?: string;
+  id?: string;
+  slug?: string;
 };
 
 function mustEnvOptional(name: string) {
@@ -26,22 +28,6 @@ function calcItemsTotal(items: CartItem[]) {
   }, 0);
 }
 
-// fallback simples (se não tiver Melhor Envio)
-function basePriceByUF(uf: string, city: string) {
-  const UF = (uf || "").toUpperCase();
-  const CITY = (city || "").toLowerCase();
-
-  if (UF === "SP" && (CITY.includes("são paulo") || CITY.includes("sao paulo"))) {
-    return { pac: 14.9, expresso: 24.9, pacDays: [2, 4], expDays: [1, 2] };
-  }
-  if (UF === "SP") return { pac: 19.9, expresso: 29.9, pacDays: [3, 5], expDays: [2, 3] };
-
-  const sudesteSul = ["RJ", "MG", "ES", "PR", "SC", "RS"];
-  if (sudesteSul.includes(UF)) return { pac: 29.9, expresso: 39.9, pacDays: [4, 7], expDays: [2, 4] };
-
-  return { pac: 39.9, expresso: 59.9, pacDays: [6, 10], expDays: [3, 6] };
-}
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method !== "POST") {
@@ -52,38 +38,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { cep, items } = req.body || {};
     const cepClean = cleanCep(cep);
 
-    if (!cepClean || cepClean.length !== 8) return res.status(400).json({ error: "CEP inválido" });
-    if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: "Carrinho vazio para cotação" });
+    if (!cepClean || cepClean.length !== 8)
+      return res.status(400).json({ error: "CEP inválido" });
+    if (!Array.isArray(items) || items.length === 0)
+      return res.status(400).json({ error: "Carrinho vazio para cotação" });
 
-    // ViaCEP (pra preencher rua/bairro/cidade/UF)
-    const viaCepRes = await fetch(`https://viacep.com.br/ws/${cepClean}/json/`, {
-      method: "GET",
-      headers: { "Content-Type": "application/json" },
-    });
+    // ViaCEP
+    const viaCepRes = await fetch(`https://viacep.com.br/ws/${cepClean}/json/`);
     const viaCep = await viaCepRes.json();
-    if (!viaCepRes.ok || viaCep?.erro) return res.status(400).json({ error: "CEP não encontrado" });
-
-    const uf = String(viaCep.uf || "");
-    const city = String(viaCep.localidade || "");
+    if (!viaCepRes.ok || viaCep?.erro)
+      return res.status(400).json({ error: "CEP não encontrado" });
 
     const itemsTotal = money(calcItemsTotal(items));
 
-    // --- Melhor Envio (se configurado) ---
-    const ME_TOKEN = mustEnvOptional("MELHOR_ENVIO_TOKEN");
-    const ME_ENV = (mustEnvOptional("MELHOR_ENVIO_ENV") || "sandbox").toLowerCase();
-    const FROM_CEP = cleanCep(mustEnvOptional("MELHOR_ENVIO_FROM_CEP"));
+    // --- variáveis de ambiente (aceita os dois nomes) ---
+    const ME_TOKEN =
+      mustEnvOptional("MELHOR_ENVIO_TOKEN");
+    const FROM_CEP =
+      cleanCep(mustEnvOptional("ME_FROM_CEP") || mustEnvOptional("MELHOR_ENVIO_FROM_CEP"));
+    const isSandbox =
+      String(process.env.MELHOR_ENVIO_SANDBOX || "true").toLowerCase() === "true";
+
+    const base = isSandbox
+      ? "https://sandbox.melhorenvio.com.br"
+      : "https://www.melhorenvio.com.br";
 
     if (ME_TOKEN && FROM_CEP && FROM_CEP.length === 8) {
-      const base = ME_ENV === "production"
-        ? "https://www.melhorenvio.com.br"
-        : "https://sandbox.melhorenvio.com.br";
-
       const weightPerMeter = Number(mustEnvOptional("WEIGHT_PER_METER_KG") || 0.2);
       const length = Number(mustEnvOptional("PKG_LENGTH_CM") || 30);
       const width = Number(mustEnvOptional("PKG_WIDTH_CM") || 20);
       const height = Number(mustEnvOptional("PKG_HEIGHT_CM") || 5);
 
-      // transforma itens do carrinho em products (caso 1)
       const products = items.map((i: any, idx: number) => {
         const meters = Number(i.meters || 0);
         const ppm = Number(i.price_per_meter || 0);
@@ -91,13 +76,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
         return {
           id: String(i.id || i.slug || idx + 1),
-          name: String(i.name || "Produto"),
+          name: String(i.name || "Tecido"),
           quantity: 1,
           unitary_value: insurance,
-          weight: money(Math.max(0.01, meters * weightPerMeter)), // kg
-          length, // cm
-          width,  // cm
-          height, // cm
+          weight: money(Math.max(0.1, meters * weightPerMeter)),
+          length,
+          width,
+          height,
         };
       });
 
@@ -105,7 +90,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         from: { postal_code: FROM_CEP },
         to: { postal_code: cepClean },
         products,
+        options: {
+          insurance_value: itemsTotal,
+          receipt: false,
+          own_hand: false,
+        },
       };
+
+      console.log("[quote] Chamando Melhor Envio:", base, JSON.stringify(payload));
 
       const meRes = await fetch(`${base}/api/v2/me/shipment/calculate`, {
         method: "POST",
@@ -119,6 +111,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
       const meText = await meRes.text();
+      console.log("[quote] Resposta Melhor Envio status:", meRes.status);
+      console.log("[quote] Resposta Melhor Envio body:", meText.slice(0, 500));
+
       let meData: any = {};
       try {
         meData = meText ? JSON.parse(meText) : {};
@@ -128,14 +123,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (meRes.ok && Array.isArray(meData)) {
         const options = meData
-          .filter((q: any) => q?.price && q?.delivery_time)
+          .filter((q: any) => q?.price && !q?.error && q?.delivery_time)
           .map((q: any) => ({
-            id: String(q.id), // id do serviço/cotação retornado
+            id: Number(q.id), // número inteiro para o Melhor Envio aceitar depois
             label: `${q.company?.name || "Transportadora"} - ${q.name || "Serviço"}`,
             price: money(Number(q.custom_price ?? q.price) || 0),
             days_min: Number(q.custom_delivery_time ?? q.delivery_time) || 0,
             days_max: Number(q.custom_delivery_time ?? q.delivery_time) || 0,
-            raw: q, // se quiser salvar no pedido depois
           }));
 
         if (options.length) {
@@ -154,33 +148,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             options,
           });
         }
+
+        // cotações vieram mas todas com erro
+        const erros = meData
+          .filter((q: any) => q?.error)
+          .map((q: any) => `${q.name}: ${q.error}`)
+          .join("; ");
+
+        console.warn("[quote] Melhor Envio sem opções válidas. Erros:", erros);
+
+        return res.status(200).json({
+          ok: false,
+          error: `Nenhuma opção de frete disponível para este CEP. ${erros}`,
+        });
       }
 
-      // se Melhor Envio falhar, cai no fallback
-      console.warn("Melhor Envio quote failed:", meRes.status, meData);
+      console.warn("[quote] Melhor Envio retornou erro:", meRes.status, meData);
+
+      return res.status(200).json({
+        ok: false,
+        error: "Erro ao consultar fretes. Tente novamente.",
+        debug: meData,
+      });
     }
 
-    // --- fallback simples ---
-    const rules = basePriceByUF(uf, city);
-    const options = [
-      { id: "pac", label: "Entrega econômica", price: money(rules.pac), days_min: rules.pacDays[0], days_max: rules.pacDays[1] },
-      { id: "expresso", label: "Entrega expressa", price: money(rules.expresso), days_min: rules.expDays[0], days_max: rules.expDays[1] },
-    ];
-
-    return res.status(200).json({
-      ok: true,
-      cep: cepClean,
-      address: {
-        cep: viaCep.cep,
-        street: viaCep.logradouro,
-        district: viaCep.bairro,
-        city: viaCep.localidade,
-        state: viaCep.uf,
-      },
-      itemsTotal,
-      provider: "fallback",
-      options,
+    // sem token/CEP configurado
+    console.warn("[quote] MELHOR_ENVIO_TOKEN ou FROM_CEP não configurados");
+    return res.status(500).json({
+      error: "Serviço de frete não configurado. Configure MELHOR_ENVIO_TOKEN e ME_FROM_CEP.",
     });
+
   } catch (e: any) {
     console.error("shipping/quote error:", e);
     return res.status(500).json({ error: e?.message || "Internal error" });
