@@ -2,7 +2,10 @@ import Link from "next/link";
 
 export default function ProductCard({ product }: any) {
   return (
-    <div className="group bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl transition">
+    <Link
+      href={`/produto/${product.slug}`}
+      className="group bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-xl transition block cursor-pointer"
+    >
 
       <div className="aspect-square bg-slate-100 overflow-hidden">
 
@@ -36,15 +39,8 @@ export default function ProductCard({ product }: any) {
           R$ {Number(product.price_per_meter).toFixed(2)} / metro
         </p>
 
-        <Link
-          href={`/produto/${product.slug}`}
-          className="inline-block mt-2 text-sm font-medium text-slate-900 hover:underline"
-        >
-          Ver produto →
-        </Link>
-
       </div>
 
-    </div>
+    </Link>
   );
 }
