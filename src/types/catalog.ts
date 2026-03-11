@@ -17,6 +17,7 @@ export type Product = {
   price_per_meter: number;
   stock_meters: number;
   image_url: string | null;
+  fabric_type: string | null;
   active: boolean;
   created_at?: string;
   variants?: ProductVariant[];
