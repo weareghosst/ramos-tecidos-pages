@@ -33,6 +33,7 @@ export const getServerSideProps: GetServerSideProps<Props> = async (ctx) => {
       price_per_meter,
       stock_meters,
       image_url,
+      fabric_type,
       active,
       created_at,
       variants:product_variants(
