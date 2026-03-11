@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useRouter } from "next/router";
 import useSWR from "swr";
 import Container from "@/components/Container";
 import ProductCard from "@/components/ProductCard";
@@ -16,25 +17,42 @@ const FABRIC_TYPES = [
 ];
 
 export default function Produtos() {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [selectedType, setSelectedType] = useState("Todos");
+  const [ready, setReady] = useState(false);
+
+  // lê os parâmetros da URL quando a página carrega (ex: vindo da home)
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const searchParam = String(router.query.search || "");
+    const typeParam = String(router.query.type || "");
+
+    if (searchParam) setSearch(searchParam);
+    if (typeParam && FABRIC_TYPES.includes(typeParam)) setSelectedType(typeParam);
+
+    setReady(true);
+  }, [router.isReady, router.query.search, router.query.type]);
 
   const apiUrl = useMemo(() => {
+    if (!ready) return null;
+
     const params = new URLSearchParams();
-
-    if (search.trim()) {
-      params.set("search", search.trim());
-    }
-
-    if (selectedType !== "Todos") {
-      params.set("type", selectedType);
-    }
+    if (search.trim()) params.set("search", search.trim());
+    if (selectedType !== "Todos") params.set("type", selectedType);
 
     return `/api/products${params.toString() ? `?${params.toString()}` : ""}`;
-  }, [search, selectedType]);
+  }, [search, selectedType, ready]);
 
   const { data, isLoading } = useSWR(apiUrl, fetcher);
   const products = data?.products || [];
+
+  function handleClear() {
+    setSearch("");
+    setSelectedType("Todos");
+    router.replace("/produtos", undefined, { shallow: true });
+  }
 
   return (
     <Container>
@@ -57,13 +75,9 @@ export default function Produtos() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-slate-400"
             />
-
             <button
               type="button"
-              onClick={() => {
-                setSearch("");
-                setSelectedType("Todos");
-              }}
+              onClick={handleClear}
               className="btn-outline px-4 py-3"
             >
               Limpar filtros
@@ -73,7 +87,6 @@ export default function Produtos() {
           <div className="mt-4 flex flex-wrap gap-2">
             {FABRIC_TYPES.map((type) => {
               const active = selectedType === type;
-
               return (
                 <button
                   key={type}
@@ -92,7 +105,7 @@ export default function Produtos() {
           </div>
         </div>
 
-        {isLoading ? (
+        {!ready || isLoading ? (
           <div className="card p-6 text-slate-600">Carregando produtos...</div>
         ) : products.length === 0 ? (
           <div className="card p-6 text-slate-600">
