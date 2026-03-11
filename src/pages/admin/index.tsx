@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 
 type Order = {
   id: string;
@@ -10,22 +11,23 @@ type Order = {
   shipping_method?: string;
   created_at?: string;
 };
-
+  
 function money(v: number) {
   return `R$ ${Number(v || 0).toFixed(2)}`;
 }
 
 function statusLabel(status: string) {
   const map: Record<string, { label: string; color: string }> = {
-    paid: { label: "Pago", color: "text-green-700 bg-green-100" },
-    pending: { label: "Pendente", color: "text-yellow-700 bg-yellow-100" },
-    shipped: { label: "Enviado", color: "text-blue-700 bg-blue-100" },
+    paid:      { label: "Pago",      color: "text-green-700 bg-green-100" },
+    pending:   { label: "Pendente",  color: "text-yellow-700 bg-yellow-100" },
+    shipped:   { label: "Enviado",   color: "text-blue-700 bg-blue-100" },
     cancelled: { label: "Cancelado", color: "text-red-700 bg-red-100" },
   };
   return map[status] || { label: status, color: "text-slate-700 bg-slate-100" };
 }
 
 export default function AdminOrders() {
+  const { checking, authenticated, logout } = useAdminAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -63,8 +65,12 @@ export default function AdminOrders() {
   }
 
   useEffect(() => {
-    loadOrders();
-  }, []);
+    if (authenticated) loadOrders();
+  }, [authenticated]);
+
+  // aguarda verificação de sessão
+  if (checking) return <div className="card p-6">Verificando acesso...</div>;
+  if (!authenticated) return null;
 
   if (loading) return <div className="card p-6">Carregando pedidos...</div>;
 
@@ -84,9 +90,18 @@ export default function AdminOrders() {
           <h1 className="text-3xl font-bold tracking-tight">Pedidos</h1>
           <p className="mt-2 text-slate-600">Acompanhe e gerencie os pedidos da loja.</p>
         </div>
-        <Link href="/admin/produtos" className="btn-outline px-4 py-2 rounded-lg">
-          Gerenciar produtos
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/admin/produtos" className="btn-outline px-4 py-2 rounded-lg">
+            Gerenciar produtos
+          </Link>
+          <button
+            type="button"
+            onClick={logout}
+            className="text-sm text-slate-500 hover:text-slate-900 transition"
+          >
+            Sair
+          </button>
+        </div>
       </div>
 
       {orders.length > 0 ? (
@@ -116,10 +131,7 @@ export default function AdminOrders() {
                     <td className="px-4 py-3">{money(o.total_price)}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <Link
-                          href={`/admin/${o.id}`}
-                          className="font-medium text-slate-900 hover:text-slate-700"
-                        >
+                        <Link href={`/admin/${o.id}`} className="font-medium text-slate-900 hover:text-slate-700">
                           Ver
                         </Link>
                         <button
