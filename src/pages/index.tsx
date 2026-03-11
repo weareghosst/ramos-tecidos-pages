@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useRouter } from "next/router";
 import Link from "next/link";
 import useSWR from "swr";
 import Container from "@/components/Container";
@@ -7,8 +9,17 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
 export default function Home() {
   const { data } = useSWR("/api/products", fetcher);
+  const [search, setSearch] = useState("");
+  const router = useRouter();
 
   const products = data?.products || [];
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    if (search.trim()) {
+      router.push(`/produtos?search=${encodeURIComponent(search.trim())}`);
+    }
+  }
 
   return (
     <Container>
@@ -28,6 +39,23 @@ export default function Home() {
               Tricoline lisa, estampada, digital e muito mais.
               Venda por metro com entrega rápida.
             </p>
+
+            {/* BARRA DE PESQUISA */}
+            <form onSubmit={handleSearch} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="O que você procura?"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="flex-1 rounded-xl border border-slate-200 px-4 py-3 outline-none focus:border-slate-400"
+              />
+              <button
+                type="submit"
+                className="btn-primary px-5 py-3 rounded-xl"
+              >
+                Buscar
+              </button>
+            </form>
 
             <div className="flex gap-4">
               <Link
