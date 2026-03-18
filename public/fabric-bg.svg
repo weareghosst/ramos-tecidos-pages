@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400">
+  <defs>
+    <filter id="noise">
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch"/>
+      <feColorMatrix type="saturate" values="0"/>
+      <feBlend in="SourceGraphic" mode="multiply"/>
+    </filter>
+    <pattern id="weave-h" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="1" y="0" fill="#d4c9b8" opacity="0.4"/>
+      <rect width="8" height="1" y="4" fill="#c9bc9e" opacity="0.3"/>
+    </pattern>
+    <pattern id="weave-v" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="1" height="8" x="0" fill="#d4c9b8" opacity="0.4"/>
+      <rect width="1" height="8" x="4" fill="#c9bc9e" opacity="0.3"/>
+    </pattern>
+    <pattern id="combined" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
+      <rect width="8" height="8" fill="#f5f0e8"/>
+      <rect width="8" height="1" y="0" fill="#d4c9b8" opacity="0.35"/>
+      <rect width="8" height="1" y="4" fill="#c9bc9e" opacity="0.25"/>
+      <rect width="1" height="8" x="0" fill="#d4c9b8" opacity="0.35"/>
+      <rect width="1" height="8" x="4" fill="#c9bc9e" opacity="0.25"/>
+      <rect width="1" height="1" x="0" y="0" fill="#b8a88a" opacity="0.5"/>
+      <rect width="1" height="1" x="4" y="4" fill="#b8a88a" opacity="0.5"/>
+    </pattern>
+  </defs>
+  <rect width="400" height="400" fill="url(#combined)"/>
+  <rect width="400" height="400" fill="#faf8f5" opacity="0.7" filter="url(#noise)"/>
+</svg>
