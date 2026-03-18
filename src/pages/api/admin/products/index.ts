@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { ProductVariant } from "../../../../types/catalog";
 
+
 function slugify(value: string) {
   return value
     .normalize("NFD")

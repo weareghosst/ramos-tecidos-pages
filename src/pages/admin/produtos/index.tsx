@@ -35,6 +35,9 @@ export default function AdminProductsPage({ products }: Props) {
         </div>
         <Link href="/admin/produtos/novo" className="btn-primary px-4 py-3">Novo produto</Link>
       </div>
+      <Link href="/admin/produtos/importar" className="btn-outline px-4 py-3">
+  Importar em massa
+</Link>
 
       <div className="card overflow-hidden">
         <table className="w-full text-sm">
