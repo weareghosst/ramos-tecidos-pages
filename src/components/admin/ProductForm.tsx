@@ -83,8 +83,17 @@ export default function ProductForm({ initialData }: Props) {
   const [variants, setVariants] = useState<ProductVariant[]>(
     initialData?.variants?.length ? initialData.variants : [{ color_name: "", color_hex: "#e2e8f0", image_url: "", stock_meters: 0, active: true }]
   );
+  const [costPrice, setCostPrice] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState<UploadState>({});
+
+  function handleCostPrice(value: string) {
+    setCostPrice(value);
+    const cost = Number(value.replace(",", "."));
+    if (cost > 0) {
+      setPricePerMeter((cost * 1.3).toFixed(2));
+    }
+  }
 
   function updateVariant(index: number, field: keyof ProductVariant, value: string | number | boolean | null) {
     const next = [...variants];
@@ -212,9 +221,32 @@ export default function ProductForm({ initialData }: Props) {
               {FABRIC_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
-          <div>
-            <label className={label}>Preço por metro (R$)</label>
-            <input type="number" step="0.01" className={input} value={pricePerMeter} onChange={(e) => setPricePerMeter(e.target.value)} placeholder="0.00" />
+          <div className="space-y-2">
+            <div>
+              <label className={label}>Preço de custo (R$)</label>
+              <input
+                type="number"
+                step="0.01"
+                className={input}
+                value={costPrice}
+                onChange={(e) => handleCostPrice(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <label className={label}>
+                Preço de venda (R$)
+                <span className="ml-1 text-slate-400 font-normal">(+30% automático)</span>
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                className={`${input} bg-slate-50`}
+                value={pricePerMeter}
+                onChange={(e) => setPricePerMeter(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
           </div>
         </div>
 
