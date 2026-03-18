@@ -173,10 +173,6 @@ export default function Checkout() {
 
   const disabled = !name || !email || !phone || (cleanDocument(document).length !== 11 && cleanDocument(document).length !== 14) || cleanCep(cep).length !== 8 || !street || !number || !district || !city || !stateUf || !selectedShippingId || loading;
 
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="rt-field"><label>{label}</label>{children}</div>
-  );
-
   return (
     <>
       <style>{STYLES}</style>
@@ -200,10 +196,10 @@ export default function Checkout() {
                     Dados pessoais
                   </h2>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                    <Field label="Nome completo"><input className="rt-input" placeholder="Seu nome completo" value={name} onChange={(e) => setName(e.target.value)} /></Field>
-                    <Field label="E-mail"><input className="rt-input" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-                    <Field label="WhatsApp"><input className="rt-input" placeholder="(11) 99999-9999" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
-                    <Field label="CPF ou CNPJ"><input className="rt-input" placeholder="000.000.000-00" value={formatDocument(document)} onChange={(e) => setDocument(e.target.value)} /></Field>
+                    <div className="rt-field"><label>Nome completo</label><input className="rt-input" placeholder="Seu nome completo" value={name} onChange={(e) => setName(e.target.value)} /></div>
+                    <div className="rt-field"><label>E-mail</label><input className="rt-input" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+                    <div className="rt-field"><label>WhatsApp</label><input className="rt-input" placeholder="(11) 99999-9999" value={phone} onChange={(e) => setPhone(e.target.value)} /></div>
+                    <div className="rt-field"><label>CPF ou CNPJ</label><input className="rt-input" placeholder="000.000.000-00" value={formatDocument(document)} onChange={(e) => setDocument(e.target.value)} /></div>
                   </div>
 
                   {/* ENDEREÇO */}
@@ -212,15 +208,15 @@ export default function Checkout() {
                     <p style={{ fontSize: "13px", color: "#9a8f82", marginBottom: "1.25rem" }}>Digite o CEP para cotar o frete e preencher automaticamente.</p>
 
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                      <Field label="CEP"><input className="rt-input" placeholder="00000-000" value={cep} onChange={(e) => setCep(cleanCep(e.target.value))} /></Field>
-                      <Field label="UF"><input className="rt-input" placeholder="SP" value={stateUf} onChange={(e) => setStateUf(e.target.value.toUpperCase())} /></Field>
+                      <div className="rt-field"><label>CEP</label><input className="rt-input" placeholder="00000-000" value={cep} onChange={(e) => setCep(cleanCep(e.target.value))} /></div>
+                      <div className="rt-field"><label>UF</label><input className="rt-input" placeholder="SP" value={stateUf} onChange={(e) => setStateUf(e.target.value.toUpperCase())} /></div>
                       <div style={{ gridColumn: "span 2" }}>
-                        <Field label="Rua"><input className="rt-input" placeholder="Rua..." value={street} onChange={(e) => setStreet(e.target.value)} /></Field>
+                        <div className="rt-field"><label>Rua</label><input className="rt-input" placeholder="Rua..." value={street} onChange={(e) => setStreet(e.target.value)} /></div>
                       </div>
-                      <Field label="Número"><input className="rt-input" placeholder="123" value={number} onChange={(e) => setNumber(e.target.value)} /></Field>
-                      <Field label="Complemento (opcional)"><input className="rt-input" placeholder="Apto, bloco..." value={complement} onChange={(e) => setComplement(e.target.value)} /></Field>
-                      <Field label="Bairro"><input className="rt-input" placeholder="Bairro..." value={district} onChange={(e) => setDistrict(e.target.value)} /></Field>
-                      <Field label="Cidade"><input className="rt-input" placeholder="Cidade..." value={city} onChange={(e) => setCity(e.target.value)} /></Field>
+                      <div className="rt-field"><label>Número</label><input className="rt-input" placeholder="123" value={number} onChange={(e) => setNumber(e.target.value)} /></div>
+                      <div className="rt-field"><label>Complemento (opcional)</label><input className="rt-input" placeholder="Apto, bloco..." value={complement} onChange={(e) => setComplement(e.target.value)} /></div>
+                      <div className="rt-field"><label>Bairro</label><input className="rt-input" placeholder="Bairro..." value={district} onChange={(e) => setDistrict(e.target.value)} /></div>
+                      <div className="rt-field"><label>Cidade</label><input className="rt-input" placeholder="Cidade..." value={city} onChange={(e) => setCity(e.target.value)} /></div>
                     </div>
                   </div>
 
