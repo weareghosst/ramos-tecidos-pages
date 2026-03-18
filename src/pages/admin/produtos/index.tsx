@@ -42,6 +42,9 @@ export default function AdminProductsPage({ products }: Props) {
         <div className="flex items-center gap-2">
           <Link href="/admin/produtos/importar" className="btn-outline px-3 py-2 text-sm">Importar em massa</Link>
           <Link href="/admin/produtos/novo" className="btn-primary px-3 py-2 text-sm">+ Novo produto</Link>
+          <Link href="/admin/produtos/cadastro-rapido" className="btn-outline px-3 py-2 text-sm">
+  📁 Cadastro por pasta
+</Link>
         </div>
       </div>
 
