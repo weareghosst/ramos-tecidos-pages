@@ -42,7 +42,7 @@ export default function Home() {
 
         .hero-section {
           position: relative;
-          min-height: 70vh;
+          min-height: 55vh;
           overflow: hidden;
           background: #faf8f5;
           font-family: 'DM Sans', sans-serif;
@@ -95,8 +95,8 @@ export default function Home() {
           display: flex;
           flex-direction: column;
           justify-content: center;
-          min-height: 70vh;
-          padding: 4rem 2rem;
+          min-height: 55vh;
+          padding: 2.5rem 2rem;
           max-width: 1200px;
           margin: 0 auto;
         }
